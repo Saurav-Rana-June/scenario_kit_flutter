@@ -5,6 +5,49 @@ All notable changes to `scenario_kit_flutter` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.0] - 2026-11-17
+
+### Added - ScenarioKit Test Mode
+- **Test Mode Capability**: Introduced screen-level automated functional testing, screenshot capture, interactive execution dashboard, in-app report viewer, and standalone report generation for Flutter applications.
+- **Declarative Test Definitions**:
+  - `ScenarioTest`: Immutable test case model supporting unique IDs, auto-generated slugs, descriptions, screen/group association, setup/teardown callbacks, custom timeouts, tags, metadata, and configurable screenshot policies.
+  - `ScenarioTestSuite`: Screen-level test suite container with automatic screen backfilling and group-based queries.
+  - `ScenarioTestRegistry`: Reactive registry extending `ChangeNotifier` with ambient singleton instance, suite grouping, and live listener notifications.
+  - `StepFinder`: Universal widget locator abstraction supporting `byKey`, `byKeyString`, `byText`, `byWidgetType`, `byTooltip`, `byIcon`, and `custom` element predicates.
+  - `TestStatus` and `StepStatus` enums with state evaluation helpers.
+- **Interaction & Assertion Steps Engine**:
+  - `ScenarioStepContext`: Abstract execution contract defining 15 interaction, assertion, frame pumping, and polling primitives.
+  - Interaction steps: `TapStep`, `LongPressStep`, `EnterTextStep`, `ClearTextStep`, `ScrollStep`, `DragStep`, `WaitStep`, `WaitForWidgetStep`, and `CustomStep`.
+  - Assertion steps: `AssertExistsStep`, `AssertNotExistsStep`, `AssertTextStep` (exact, contains, regex), `AssertVisibleStep`, and `AssertCustomStep`.
+  - `AssertionResult` diagnostic model and `AssertionException`.
+  - `StepExecutionResult` capturing status, duration, error messages, and step-level screenshots.
+- **In-App Execution Engine & Two Execution Modes**:
+  - `InAppStepContext`: Dispatches test steps directly against live widget trees using root context element traversal, `GestureBinding` pointer simulation, and `EditableText` synchronization.
+  - `ScenarioTestExecutor`: Orchestrates test execution with timeouts, cancellation tokens, setup/teardown isolation, step delay, live progress streams, and screenshot capture triggers.
+  - `ScenarioTestRunner`:
+    - **Mode A (Functionality-wise Execution)**: Execute an individual test or an arbitrary selected subset of tests.
+    - **Mode B (Complete Screen Execution)**: Execute all registered tests for a screen in predictable order with consolidated summary reporting.
+  - `ScreenExecutionSummary`: Aggregate execution results with duration, passed/failed/skipped counts, and serialization.
+- **Screenshot Capture System**:
+  - `ScenarioRepaintBoundary`: Repaint boundary widget anchoring screen-level rasterization.
+  - `ScenarioScreenshotService`: High-fidelity PNG rasterizer via `RenderRepaintBoundary.toImage()`, optional device capture hooks for integration tests, memory buffer FIFO eviction (`maxInMemoryScreenshots`), and Base64 data URL formatting.
+  - `ScreenshotPolicy`: Configurable capture checkpoints (`captureBeforeTest`, `captureOnSuccess`, `captureOnFailure`, `captureAfterSteps`).
+- **Reporting & Exporters**:
+  - `ScenarioTestReport`: Comprehensive report model aggregating multiple screen summaries with KPI metrics (success rate, passed, failed, skipped, duration, environment diagnostics).
+  - `JsonReportExporter`: Minified and pretty-printed JSON test report serializer.
+  - `HtmlReportExporter`: Standalone, interactive HTML report generator with embedded Base64 screenshots, expandable test steps, assertion logs, environment metadata badges, and zero external CDN or internet dependencies.
+- **Test Mode UI**:
+  - `ScenarioTestDashboard`: In-app test control center featuring screen/group filter chips, search input, multi-selection, progress bar, execution controls (`Run All`, `Run Selected`, `Cancel`), and status badges.
+  - `ScenarioReportViewerDialog`: In-app modal report viewer displaying KPI cards, step execution breakdowns, diagnostic logs, and full-resolution screenshot zoom lightbox.
+  - Mode Switcher: Integrated `Scenarios` vs `Test Mode` tab switcher in `ScenarioPanel` and `ScenarioFloatingTrigger`.
+- **Automated Integration Test Harness**:
+  - `WidgetTesterStepContext`: Concrete `ScenarioStepContext` implementation delegating to `WidgetTester`.
+  - `StepFinderWidgetTesterExtension`: Automatic conversion from `StepFinder` to `flutter_test.Finder`.
+  - `ScenarioTestHarness`: Automated test runner bridge (`runTest`, `runSuite`, `runSelectedTests`, `runAll`, `generateReport`) executing `ScenarioTest` definitions seamlessly in headless `testWidgets` or real-device `integration_test`.
+  - `ScenarioTestMatchers`: Expressive test matchers (`isTestPassed`, `isTestFailed`, `isTestSkipped`, `isExecutionSuccess`, `hasPassedSteps`, `hasFailedSteps`, `hasPassCount`, `hasFailCount`).
+- **Testing Entry Point**:
+  - Dedicated `package:scenario_kit_flutter/testing.dart` library re-exporting all test definitions, harness utilities, matchers, runner, and reporters while preserving complete backward compatibility with scenario preview test utilities.
+
 ## [0.1.0] - 2026-11-17
 
 ### Added

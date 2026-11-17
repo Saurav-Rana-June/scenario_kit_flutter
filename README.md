@@ -307,6 +307,170 @@ void main() {
 
 ---
 
+## 🧪 ScenarioKit Test Mode — Automated Functional Testing
+
+ScenarioKit includes a screen-level automated functional testing, screenshot capture, and reporting engine. It allows Flutter developers to register, organize, execute, and review functional tests directly within the running application or in CI/headless integration tests.
+
+### 1. Registering Screen Test Cases
+
+Define screen-level test cases using intuitive interaction and assertion steps:
+
+```dart
+import 'package:scenario_kit_flutter/scenario_kit_flutter.dart';
+
+void registerScreenTests() {
+  ScenarioTestRegistry.instance.registerSuite(
+    ScenarioTestSuite(
+      screenName: 'Login Screen',
+      tests: [
+        ScenarioTest(
+          name: 'Valid Credentials Login',
+          group: 'Authentication',
+          description: 'Enters valid email and password, taps login, and verifies dashboard navigation',
+          steps: [
+            // Assert form fields are visible
+            AssertExistsStep(finder: StepFinder.byKeyString('email_field')),
+            AssertExistsStep(finder: StepFinder.byKeyString('password_field')),
+
+            // Fill in credentials
+            EnterTextStep(
+              finder: StepFinder.byKeyString('email_field'),
+              text: 'user@example.com',
+            ),
+            EnterTextStep(
+              finder: StepFinder.byKeyString('password_field'),
+              text: 'secret123',
+            ),
+
+            // Tap submit and verify outcome
+            TapStep(finder: StepFinder.byKeyString('login_button')),
+            WaitForWidgetStep(finder: StepFinder.byText('Welcome Back')),
+            AssertTextStep(
+              finder: StepFinder.byKeyString('welcome_banner'),
+              expectedText: 'Welcome Back',
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+}
+```
+
+### 2. Available Step Primitives
+
+#### Interaction Steps
+- `TapStep(finder: StepFinder)`
+- `LongPressStep(finder: StepFinder, duration: Duration)`
+- `EnterTextStep(finder: StepFinder, text: String)`
+- `ClearTextStep(finder: StepFinder)`
+- `ScrollStep(finder: StepFinder, offset: Offset)`
+- `DragStep(finder: StepFinder, offset: Offset)`
+- `WaitStep(duration: Duration)`
+- `WaitForWidgetStep(finder: StepFinder, timeout: Duration)`
+- `CustomStep(description: String, callback: (context) => ...)`
+
+#### Assertion Steps
+- `AssertExistsStep(finder: StepFinder)`
+- `AssertNotExistsStep(finder: StepFinder)`
+- `AssertTextStep(finder: StepFinder, expectedText: String, matchType: TextMatchType)` (exact, contains, regex)
+- `AssertVisibleStep(finder: StepFinder)`
+- `AssertCustomStep(description: String, assertion: (context) => ...)`
+
+#### Universal StepFinder Locators
+- `StepFinder.byKey(Key)`
+- `StepFinder.byKeyString(String)`
+- `StepFinder.byText(String)`
+- `StepFinder.byWidgetType(Type)`
+- `StepFinder.byTooltip(String)`
+- `StepFinder.byIcon(IconData)`
+- `StepFinder.custom((element) => bool)`
+
+---
+
+### 3. In-App Interactive Test Dashboard & Report Viewer
+
+When running your app in debug mode with `ScenarioKit`:
+1. Tap the floating trigger badge to open the developer bottom sheet.
+2. Switch tabs from **Scenarios** to **Test Mode**.
+3. Select an individual test, multiple tests, or all tests for a particular screen.
+4. Tap **Run Selected** or **Run All** to watch real-time step execution with live progress indicators.
+5. Tap **View Report** to launch the comprehensive in-app report viewer featuring:
+   - Success rate, pass/fail counters, and execution duration.
+   - Expandable test step cards with individual timestamps and error diagnostics.
+   - Embedded screenshot gallery with full-screen lightbox zoom.
+
+---
+
+### 4. Automated CI & Integration Test Harness
+
+The exact same test cases registered for in-app testing can be executed headlessly in CI or on real devices using Flutter's official testing frameworks (`flutter test` or `integration_test`):
+
+```dart
+import 'package:flutter_test/flutter_test.dart';
+import 'package:scenario_kit_flutter/testing.dart';
+import 'package:my_app/main.dart';
+
+void main() {
+  testWidgets('Executes login screen functional test', (tester) async {
+    final test = ScenarioTest(
+      name: 'Valid Login',
+      steps: [
+        EnterTextStep(finder: StepFinder.byKeyString('email'), text: 'test@mail.com'),
+        TapStep(finder: StepFinder.byKeyString('submit_btn')),
+        AssertExistsStep(finder: StepFinder.byText('Welcome')),
+      ],
+    );
+
+    final result = await ScenarioTestHarness.runTest(
+      tester,
+      test,
+      pumpApp: () => tester.pumpWidget(const MyApp()),
+    );
+
+    // Custom ScenarioKit matchers
+    expect(result, isTestPassed);
+    expect(result, hasPassedSteps(3));
+  });
+
+  testWidgets('Executes entire screen test suite', (tester) async {
+    final suite = ScenarioTestRegistry.instance.findSuite('Login Screen')!;
+
+    final summary = await ScenarioTestHarness.runSuite(
+      tester,
+      suite,
+      pumpApp: () => tester.pumpWidget(const MyApp()),
+      stopOnFirstFailure: false,
+    );
+
+    expect(summary, isExecutionSuccess);
+    expect(summary, hasPassCount(suite.tests.length));
+  });
+}
+```
+
+---
+
+### 5. Screenshot Capture & Standalone HTML Reports
+
+ScenarioKit captures rasterized screenshots at configurable checkpoints (`captureBeforeTest`, `captureAfterSteps`, `captureOnFailure`, `captureOnSuccess`).
+
+Export complete, standalone HTML dashboards with zero external CDN dependencies:
+
+```dart
+import 'package:scenario_kit_flutter/scenario_kit_flutter.dart';
+
+void exportResults(ScenarioTestReport report) {
+  // Standalone HTML report with embedded Base64 screenshots
+  final html = const HtmlReportExporter().export(report);
+
+  // Machine-readable JSON report for CI pipelines
+  final json = const JsonReportExporter().export(report);
+}
+```
+
+---
+
 ## 🎨 Theming & Customization
 
 Customize the developer panel theme to match your brand or preferences:

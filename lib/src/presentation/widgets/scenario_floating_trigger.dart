@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/scenario_controller.dart';
+import '../../testing/registry/scenario_test_registry.dart';
 import '../scenario_scope.dart';
 import '../theme/scenario_panel_theme.dart';
 import 'scenario_panel.dart';
@@ -12,6 +13,7 @@ class ScenarioFloatingTrigger extends StatefulWidget {
   const ScenarioFloatingTrigger({
     super.key,
     this.controller,
+    this.testRegistry,
     this.theme,
     this.initialAlignment = Alignment.bottomRight,
     this.isDraggable = true,
@@ -19,6 +21,9 @@ class ScenarioFloatingTrigger extends StatefulWidget {
 
   /// Explicit controller to bind to. If omitted, resolves from [ScenarioScope.of(context)].
   final ScenarioController? controller;
+
+  /// Optional test registry to bind to in Test Mode. If omitted, uses [ScenarioTestRegistry.instance].
+  final ScenarioTestRegistry? testRegistry;
 
   /// Custom theme for the trigger and opened panel.
   final ScenarioPanelThemeData? theme;
@@ -74,6 +79,7 @@ class _ScenarioFloatingTriggerState extends State<ScenarioFloatingTrigger> {
             top: false,
             child: ScenarioPanel(
               controller: controller,
+              testRegistry: widget.testRegistry,
               theme: panelTheme,
               onClose: () => Navigator.of(sheetContext).pop(),
             ),

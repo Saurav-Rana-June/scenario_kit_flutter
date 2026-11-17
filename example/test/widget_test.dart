@@ -88,5 +88,47 @@ void main() {
       );
       expect(find.text('Wireless Noise-Canceling Headphones'), findsOneWidget);
     });
+
+    testWidgets(
+      'interactively switches to Test Mode and views registered test cases',
+      (tester) async {
+        registerExampleFunctionalTests();
+        await tester.pumpWidget(const ScenarioKitExampleApp());
+        await tester.pumpAndSettle();
+
+        // Open ScenarioKit debug panel via floating trigger
+        await tester.tap(
+          find.byKey(const Key('scenario_floating_trigger_button')),
+        );
+        await tester.pumpAndSettle();
+
+        // Switch to Test Mode tab
+        await tester.tap(find.byKey(const ValueKey('panel_tab_tests')));
+        await tester.pumpAndSettle();
+
+        expect(find.byType(ScenarioTestDashboard), findsOneWidget);
+        expect(find.text('Product Catalog'), findsWidgets);
+        expect(find.text('Verify Header & Catalog Branding'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'executes functional tests on example app via ScenarioTestHarness',
+      (tester) async {
+        final registry = ScenarioTestRegistry();
+        registerExampleFunctionalTests(registry);
+
+        final suite = registry.suites.first;
+        final summary = await ScenarioTestHarness.runSuite(
+          tester,
+          suite,
+          pumpApp: () => tester.pumpWidget(const ScenarioKitExampleApp()),
+        );
+
+        expect(summary, isExecutionSuccess);
+        expect(summary, hasPassCount(3));
+        expect(summary, hasFailCount(0));
+      },
+    );
   });
 }

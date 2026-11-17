@@ -2,7 +2,89 @@ import 'package:flutter/material.dart';
 import 'package:scenario_kit_flutter/scenario_kit_flutter.dart';
 
 void main() {
+  registerExampleFunctionalTests();
   runApp(const ScenarioKitExampleApp());
+}
+
+/// Registers automated functional tests showcasing ScenarioKit Test Mode.
+void registerExampleFunctionalTests([ScenarioTestRegistry? registry]) {
+  final target = registry ?? ScenarioTestRegistry.instance;
+  target.clear();
+
+  target.registerSuite(
+    ScenarioTestSuite(
+      screenName: 'Product Catalog',
+      tests: [
+        ScenarioTest(
+          name: 'Verify Header & Catalog Branding',
+          group: 'Branding',
+          description:
+              'Verifies store brand title and action icons are present',
+          steps: [
+            AssertExistsStep(finder: StepFinder.byText('GearStore')),
+            AssertExistsStep(
+              finder: StepFinder.byIcon(Icons.shopping_bag_outlined),
+            ),
+            TapStep(finder: StepFinder.byIcon(Icons.shopping_bag_outlined)),
+          ],
+        ),
+        ScenarioTest(
+          name: 'Verify First Product Details & Price',
+          group: 'Catalog Content',
+          description:
+              'Checks product title, rating badge, and formatted currency price',
+          steps: [
+            AssertTextStep(
+              finder: StepFinder.byText('Wireless Noise-Canceling Headphones'),
+              expectedText: 'Wireless Noise-Canceling Headphones',
+            ),
+            AssertExistsStep(finder: StepFinder.byText(r'$299.99')),
+            AssertExistsStep(finder: StepFinder.byIcon(Icons.star_rounded)),
+          ],
+        ),
+        ScenarioTest(
+          name: 'Scroll Down to Verify Docking Station',
+          group: 'Catalog Content',
+          description:
+              'Scrolls through the catalog list and verifies the 5th item',
+          steps: [
+            ScrollStep(
+              finder: StepFinder.byWidgetType(ListView),
+              offset: const Offset(0, -300),
+            ),
+            AssertExistsStep(
+              finder: StepFinder.byText('Thunderbolt 4 Docking Station'),
+            ),
+            AssertExistsStep(finder: StepFinder.byText(r'$219.00')),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  target.registerSuite(
+    ScenarioTestSuite(
+      screenName: 'Network & Errors',
+      tests: [
+        ScenarioTest(
+          name: 'Offline Warning Indicator',
+          group: 'Offline Mode',
+          description: 'Checks offline cached mode warning banner',
+          steps: [
+            AssertExistsStep(finder: StepFinder.byIcon(Icons.wifi_off_rounded)),
+          ],
+        ),
+        ScenarioTest(
+          name: 'Server Error Retry Button',
+          group: 'Error Recovery',
+          description: 'Verifies error state retry action button',
+          steps: [
+            AssertExistsStep(finder: StepFinder.byIcon(Icons.refresh_rounded)),
+          ],
+        ),
+      ],
+    ),
+  );
 }
 
 /// Example Product model.

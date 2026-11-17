@@ -1,0 +1,176 @@
+import 'dart:collection';
+
+import 'package:flutter/foundation.dart';
+
+import '../../core/scenario_exceptions.dart';
+import '../definitions/scenario_test.dart';
+import '../definitions/scenario_test_suite.dart';
+
+/// Registry responsible for managing, organizing, and querying [ScenarioTestSuite]
+/// and [ScenarioTest] instances across screens.
+class ScenarioTestRegistry extends ChangeNotifier {
+  /// Creates a [ScenarioTestRegistry].
+  ///
+  /// Optionally populates the registry with [initialSuites].
+  ScenarioTestRegistry([Iterable<ScenarioTestSuite>? initialSuites]) {
+    if (initialSuites != null) {
+      for (final suite in initialSuites) {
+        registerSuite(suite);
+      }
+    }
+  }
+
+  static ScenarioTestRegistry? _instance;
+
+  /// Global ambient instance for simple or single-registry applications.
+  static ScenarioTestRegistry get instance =>
+      _instance ??= ScenarioTestRegistry();
+
+  /// Resets the global ambient instance. Mainly useful in testing environments.
+  @visibleForTesting
+  static void resetInstance() {
+    _instance?.dispose();
+    _instance = null;
+  }
+
+  final Map<String, ScenarioTestSuite> _suites = <String, ScenarioTestSuite>{};
+  final Map<String, ScenarioTest> _standaloneTests = <String, ScenarioTest>{};
+
+  /// Unmodifiable list of all registered suites.
+  List<ScenarioTestSuite> get suites =>
+      UnmodifiableListView<ScenarioTestSuite>(_suites.values);
+
+  /// Sorted list of all screen names with registered tests.
+  List<String> get screens {
+    final list = _suites.keys.toList()..sort();
+    return UnmodifiableListView<String>(list);
+  }
+
+  /// Returns all registered tests across all screens and suites.
+  List<ScenarioTest> get allTests {
+    final list = <ScenarioTest>[];
+    for (final suite in _suites.values) {
+      list.addAll(suite.tests);
+    }
+    list.addAll(_standaloneTests.values);
+    return UnmodifiableListView<ScenarioTest>(list);
+  }
+
+  /// Total number of unique tests registered.
+  int get totalTestCount => allTests.length;
+
+  /// Whether the registry contains zero tests.
+  bool get isEmpty => allTests.isEmpty;
+
+  /// Whether the registry contains at least one test.
+  bool get isNotEmpty => allTests.isNotEmpty;
+
+  /// Registers a [ScenarioTestSuite] for its [ScenarioTestSuite.screenName].
+  ///
+  /// Throws [DuplicateScenarioException] if a suite for the same screen
+  /// is already registered.
+  void registerSuite(ScenarioTestSuite suite) {
+    if (_suites.containsKey(suite.screenName)) {
+      throw DuplicateScenarioException(suite.screenName);
+    }
+    _suites[suite.screenName] = suite;
+    notifyListeners();
+  }
+
+  /// Registers an individual [ScenarioTest].
+  ///
+  /// If [ScenarioTest.screen] is defined on [test], it is added to the screen's suite; otherwise,
+  /// it is registered under the standalone collection.
+  /// Throws [DuplicateScenarioException] if a test with the same ID already exists.
+  void registerTest(ScenarioTest test) {
+    if (hasTest(test.id)) {
+      throw DuplicateScenarioException(test.id);
+    }
+
+    final screen = test.screen;
+    if (screen != null && screen.trim().isNotEmpty) {
+      final existingSuite = _suites[screen];
+      if (existingSuite != null) {
+        final updatedTests = [...existingSuite.tests, test];
+        _suites[screen] = ScenarioTestSuite(
+          screenName: screen,
+          tests: updatedTests,
+          description: existingSuite.description,
+          metadata: existingSuite.metadata,
+        );
+      } else {
+        _suites[screen] = ScenarioTestSuite(
+          screenName: screen,
+          tests: [test],
+        );
+      }
+    } else {
+      _standaloneTests[test.id] = test;
+    }
+
+    notifyListeners();
+  }
+
+  /// Registers multiple tests atomically.
+  void registerAllTests(Iterable<ScenarioTest> tests) {
+    for (final test in tests) {
+      registerTest(test);
+    }
+  }
+
+  /// Returns the suite registered for [screenName], or `null` if not found.
+  ScenarioTestSuite? getSuite(String screenName) => _suites[screenName];
+
+  /// Returns the suite registered for [screenName], or throws [ScenarioNotFoundException].
+  ScenarioTestSuite requireSuite(String screenName) {
+    final suite = _suites[screenName];
+    if (suite == null) {
+      throw ScenarioNotFoundException(screenName);
+    }
+    return suite;
+  }
+
+  /// Returns `true` if a suite for [screenName] is registered.
+  bool hasSuite(String screenName) => _suites.containsKey(screenName);
+
+  /// Returns the test with [id], or `null` if not found anywhere in the registry.
+  ScenarioTest? getTestById(String id) {
+    for (final suite in _suites.values) {
+      final test = suite.getTestById(id);
+      if (test != null) return test;
+    }
+    return _standaloneTests[id];
+  }
+
+  /// Returns the test with [id], or throws [ScenarioNotFoundException].
+  ScenarioTest requireTestById(String id) {
+    final test = getTestById(id);
+    if (test == null) {
+      throw ScenarioNotFoundException(id);
+    }
+    return test;
+  }
+
+  /// Returns `true` if a test with [id] is registered in any suite.
+  bool hasTest(String id) => getTestById(id) != null;
+
+  /// Returns all tests associated with [screenName].
+  List<ScenarioTest> getTestsForScreen(String screenName) {
+    return _suites[screenName]?.tests ?? const [];
+  }
+
+  /// Returns all tests matching [group] across all registered screens.
+  List<ScenarioTest> getTestsByGroup(String? group) {
+    final target = group?.trim();
+    final matches = allTests.where((t) => t.group?.trim() == target);
+    return UnmodifiableListView<ScenarioTest>(matches.toList());
+  }
+
+  /// Clears all suites and tests from this registry.
+  void clear() {
+    if (_suites.isEmpty && _standaloneTests.isEmpty) return;
+    _suites.clear();
+    _standaloneTests.clear();
+    notifyListeners();
+  }
+}

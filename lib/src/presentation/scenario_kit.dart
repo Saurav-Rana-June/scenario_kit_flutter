@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import '../core/scenario.dart';
 import '../core/scenario_controller.dart';
 import '../core/scenario_registry.dart';
+import '../testing/registry/scenario_test_registry.dart';
 import 'scenario_scope.dart';
 import 'scenario_viewer.dart';
 import 'theme/scenario_panel_theme.dart';
@@ -34,6 +35,7 @@ class ScenarioKit extends StatefulWidget {
     this.floatingTriggerAlignment = Alignment.bottomRight,
     this.theme,
     this.emptyBuilder,
+    this.testRegistry,
   }) : assert(
           child != null ||
               scenarios != null ||
@@ -73,6 +75,9 @@ class ScenarioKit extends StatefulWidget {
 
   /// Widget builder shown when no scenarios are available.
   final WidgetBuilder? emptyBuilder;
+
+  /// Optional test registry to bind to in Test Mode. If omitted, uses [ScenarioTestRegistry.instance].
+  final ScenarioTestRegistry? testRegistry;
 
   @override
   State<ScenarioKit> createState() => _ScenarioKitState();
@@ -158,6 +163,7 @@ class _ScenarioKitState extends State<ScenarioKit> {
           content,
           ScenarioFloatingTrigger(
             controller: _controller,
+            testRegistry: widget.testRegistry,
             theme: widget.theme,
             initialAlignment: widget.floatingTriggerAlignment,
           ),

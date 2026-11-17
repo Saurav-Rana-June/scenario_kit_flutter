@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/scenario.dart';
 import '../../core/scenario_controller.dart';
+import '../../testing/registry/scenario_test_registry.dart';
 import '../scenario_scope.dart';
 import '../theme/scenario_panel_theme.dart';
+import 'scenario_test_dashboard.dart';
 
 /// Developer panel widget for searching, organizing, inspecting, and switching
 /// between registered scenarios.
@@ -12,6 +14,7 @@ class ScenarioPanel extends StatefulWidget {
   const ScenarioPanel({
     super.key,
     this.controller,
+    this.testRegistry,
     this.theme,
     this.onClose,
     this.showHeader = true,
@@ -19,6 +22,9 @@ class ScenarioPanel extends StatefulWidget {
 
   /// Explicit controller to bind to. If omitted, resolves from [ScenarioScope.of(context)].
   final ScenarioController? controller;
+
+  /// Optional test registry. If omitted, resolves to ambient [ScenarioTestRegistry.instance].
+  final ScenarioTestRegistry? testRegistry;
 
   /// Custom theme for the panel. Defaults to ambient dark or light theme.
   final ScenarioPanelThemeData? theme;
@@ -33,10 +39,13 @@ class ScenarioPanel extends StatefulWidget {
   State<ScenarioPanel> createState() => _ScenarioPanelState();
 }
 
+enum _PanelTab { scenarios, tests }
+
 class _ScenarioPanelState extends State<ScenarioPanel> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String? _selectedGroupFilter; // null means 'All'
+  _PanelTab _activeTab = _PanelTab.scenarios;
 
   @override
   void initState() {
@@ -170,6 +179,28 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
         final filtered = _filterScenarios(scenarios);
         final groups = controller.registry.groups;
 
+        if (_activeTab == _PanelTab.tests) {
+          return Material(
+            color: panelTheme.backgroundColor,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (widget.showHeader)
+                  _buildHeader(
+                      context, controller, panelTheme, scenarios.length),
+                Flexible(
+                  child: ScenarioTestDashboard(
+                    registry: widget.testRegistry,
+                    theme: panelTheme,
+                    onClose: widget.onClose,
+                  ),
+                ),
+              ],
+            ),
+          );
+        }
+
         return Material(
           color: panelTheme.backgroundColor,
           child: Column(
@@ -258,6 +289,73 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
               ),
             ),
           ),
+          if ((widget.testRegistry ?? ScenarioTestRegistry.instance)
+              .isNotEmpty) ...[
+            const SizedBox(width: 8),
+            Container(
+              decoration: BoxDecoration(
+                color: panelTheme.chipColor,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              padding: const EdgeInsets.all(2),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  InkWell(
+                    key: const ValueKey('panel_tab_scenarios'),
+                    onTap: () =>
+                        setState(() => _activeTab = _PanelTab.scenarios),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _activeTab == _PanelTab.scenarios
+                            ? panelTheme.primaryColor
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Scenarios',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _activeTab == _PanelTab.scenarios
+                              ? panelTheme.onPrimaryColor
+                              : panelTheme.subtitleColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                  InkWell(
+                    key: const ValueKey('panel_tab_tests'),
+                    onTap: () => setState(() => _activeTab = _PanelTab.tests),
+                    borderRadius: BorderRadius.circular(6),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: _activeTab == _PanelTab.tests
+                            ? panelTheme.primaryColor
+                            : Colors.transparent,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        'Tests (${(widget.testRegistry ?? ScenarioTestRegistry.instance).totalTestCount})',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: _activeTab == _PanelTab.tests
+                              ? panelTheme.onPrimaryColor
+                              : panelTheme.subtitleColor,
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
           const Spacer(),
           IconButton(
             tooltip: 'Reset to default scenario',
