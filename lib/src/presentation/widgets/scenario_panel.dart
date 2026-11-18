@@ -18,6 +18,7 @@ class ScenarioPanel extends StatefulWidget {
     this.theme,
     this.onClose,
     this.showHeader = true,
+    this.testExecutionContext,
   });
 
   /// Explicit controller to bind to. If omitted, resolves from [ScenarioScope.of(context)].
@@ -34,6 +35,11 @@ class ScenarioPanel extends StatefulWidget {
 
   /// Whether to display the top title header. Defaults to `true`.
   final bool showHeader;
+
+  /// Context under [ScenarioKit] used to run tests against the live app UI
+  /// (not the modal sheet). Pass from [ScenarioFloatingTrigger] when embedded
+  /// in a bottom sheet.
+  final BuildContext? testExecutionContext;
 
   @override
   State<ScenarioPanel> createState() => _ScenarioPanelState();
@@ -209,36 +215,37 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
     final controller = widget.controller ?? ScenarioScope.of(context);
     final panelTheme = _resolveTheme(context);
 
+    if (_activeTab == _PanelTab.tests) {
+      final testRegistry = widget.testRegistry ?? ScenarioTestRegistry.instance;
+      final totalCount = testRegistry.totalTestCount;
+      return Material(
+        color: panelTheme.backgroundColor,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (widget.showHeader) ...[
+              _buildDragHandle(panelTheme),
+              _buildHeader(context, controller, panelTheme, totalCount),
+            ],
+            Expanded(
+              child: ScenarioTestDashboard(
+                registry: widget.testRegistry,
+                theme: panelTheme,
+                onClose: widget.onClose,
+                executionContext: widget.testExecutionContext,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
         final scenarios = controller.registry.scenarios;
         final filtered = _filterScenarios(scenarios);
         final groups = controller.registry.groups;
-
-        if (_activeTab == _PanelTab.tests) {
-          return Material(
-            color: panelTheme.backgroundColor,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (widget.showHeader) ...[
-                  _buildDragHandle(panelTheme),
-                  _buildHeader(
-                      context, controller, panelTheme, scenarios.length),
-                ],
-                Flexible(
-                  child: ScenarioTestDashboard(
-                    registry: widget.testRegistry,
-                    theme: panelTheme,
-                    onClose: widget.onClose,
-                  ),
-                ),
-              ],
-            ),
-          );
-        }
 
         return Material(
           color: panelTheme.backgroundColor,

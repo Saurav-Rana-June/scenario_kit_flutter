@@ -5,6 +5,13 @@ All notable changes to `scenario_kit_flutter` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Test Mode **Run All** from the bottom sheet now runs against the live app UI (via `appContentKey` / `executionContext`) instead of the modal route, and the sheet stays open while tests run.
+- In-app taps no longer inject pointer id `0` (fixes Chrome `PointerHoverEvent` gesture assertions and bottom sheet dismissals); uses `InAppPointerEvents` with hit-test and non-mouse pointer ids.
+- Widget search during in-app runs is scoped to app content under test (not the whole element tree including the modal).
+
 ## [0.2.1] - 2026-11-18
 
 ### Added

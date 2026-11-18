@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import '../../core/scenario_controller.dart';
 
@@ -8,6 +7,7 @@ import '../../presentation/scenario_scope.dart';
 import '../assertions/assertion_result.dart';
 import '../definitions/step_finder.dart';
 import '../steps/scenario_step_context.dart';
+import 'in_app_pointer_events.dart';
 
 /// Concrete [ScenarioStepContext] that executes test steps directly against
 /// a live, rendered in-app Flutter widget tree using the [rootContext].
@@ -69,11 +69,18 @@ class InAppStepContext implements ScenarioStepContext {
       element.visitChildElements(visitor);
     }
 
-    final root = WidgetsBinding.instance.rootElement ??
-        (rootContext.mounted ? (rootContext as Element) : null);
-    if (root != null) {
-      if (finder.matchesElement(root)) return root;
-      root.visitChildElements(visitor);
+    if (!rootContext.mounted) return null;
+    final root = rootContext as Element;
+    if (finder.matchesElement(root)) return root;
+    root.visitChildElements(visitor);
+    if (match != null) return match;
+
+    if (_isAutomatedTestBinding) {
+      final appRoot = WidgetsBinding.instance.rootElement;
+      if (appRoot != null && appRoot != root) {
+        if (finder.matchesElement(appRoot)) return appRoot;
+        appRoot.visitChildElements(visitor);
+      }
     }
     return match;
   }
@@ -88,11 +95,18 @@ class InAppStepContext implements ScenarioStepContext {
       element.visitChildElements(visitor);
     }
 
-    final root = WidgetsBinding.instance.rootElement ??
-        (rootContext.mounted ? (rootContext as Element) : null);
-    if (root != null) {
+    if (rootContext.mounted) {
+      final root = rootContext as Element;
       if (finder.matchesElement(root)) matches.add(root);
       root.visitChildElements(visitor);
+    }
+
+    if (matches.isEmpty && _isAutomatedTestBinding) {
+      final appRoot = WidgetsBinding.instance.rootElement;
+      if (appRoot != null) {
+        if (finder.matchesElement(appRoot)) matches.add(appRoot);
+        appRoot.visitChildElements(visitor);
+      }
     }
     return matches;
   }
@@ -194,19 +208,56 @@ class InAppStepContext implements ScenarioStepContext {
           'Cannot tap: Target widget ${finder.description} does not have a RenderBox.');
     }
 
-    final center = renderBox.localToGlobal(renderBox.size.center(Offset.zero));
-    GestureBinding.instance.handlePointerEvent(PointerDownEvent(
-      position: center,
-      kind: PointerDeviceKind.touch,
-    ));
-    GestureBinding.instance.handlePointerEvent(PointerUpEvent(
-      position: center,
-      kind: PointerDeviceKind.touch,
-    ));
+    if (_invokeDirectTap(element.widget)) {
+      await pumpAndSettle();
+      return;
+    }
 
-    // Also invoke ActivateIntent for button widgets supporting Action activation
-    Actions.maybeInvoke<ActivateIntent>(element, const ActivateIntent());
+    final activated =
+        Actions.maybeInvoke(element, const ActivateIntent());
+    if (activated == true) {
+      await pumpAndSettle();
+      return;
+    }
+
+    if (_isAutomatedTestBinding) {
+      throw StateError(
+        'Cannot tap: Target widget ${finder.description} has no supported '
+        'onPressed handler in widget tests.',
+      );
+    }
+
+    final center = renderBox.localToGlobal(renderBox.size.center(Offset.zero));
+    await InAppPointerEvents.tapAt(center);
     await pumpAndSettle();
+  }
+
+  bool _invokeDirectTap(Widget widget) {
+    if (widget is ElevatedButton) {
+      widget.onPressed?.call();
+      return widget.onPressed != null;
+    }
+    if (widget is TextButton) {
+      widget.onPressed?.call();
+      return widget.onPressed != null;
+    }
+    if (widget is OutlinedButton) {
+      widget.onPressed?.call();
+      return widget.onPressed != null;
+    }
+    if (widget is FilledButton) {
+      widget.onPressed?.call();
+      return widget.onPressed != null;
+    }
+    if (widget is IconButton) {
+      widget.onPressed?.call();
+      return widget.onPressed != null;
+    }
+    if (widget is InkWell && widget.onTap != null) {
+      widget.onTap!();
+      return true;
+    }
+    return false;
   }
 
   @override
@@ -227,15 +278,7 @@ class InAppStepContext implements ScenarioStepContext {
     }
 
     final center = renderBox.localToGlobal(renderBox.size.center(Offset.zero));
-    GestureBinding.instance.handlePointerEvent(PointerDownEvent(
-      position: center,
-      kind: PointerDeviceKind.touch,
-    ));
-    await wait(duration);
-    GestureBinding.instance.handlePointerEvent(PointerUpEvent(
-      position: center,
-      kind: PointerDeviceKind.touch,
-    ));
+    await InAppPointerEvents.longPressAt(center, duration: duration);
   }
 
   EditableTextState? _findEditableTextState(Element element) {
@@ -350,22 +393,7 @@ class InAppStepContext implements ScenarioStepContext {
 
     final start = renderBox.localToGlobal(renderBox.size.center(Offset.zero));
     final end = start + offset;
-
-    GestureBinding.instance.handlePointerEvent(PointerDownEvent(
-      position: start,
-      kind: PointerDeviceKind.touch,
-    ));
-    await pump(const Duration(milliseconds: 16));
-    GestureBinding.instance.handlePointerEvent(PointerMoveEvent(
-      position: end,
-      delta: offset,
-      kind: PointerDeviceKind.touch,
-    ));
-    await pump(const Duration(milliseconds: 16));
-    GestureBinding.instance.handlePointerEvent(PointerUpEvent(
-      position: end,
-      kind: PointerDeviceKind.touch,
-    ));
+    await InAppPointerEvents.dragLine(start, end, duration: duration);
   }
 
   @override

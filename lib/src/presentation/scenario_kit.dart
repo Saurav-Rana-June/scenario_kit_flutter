@@ -105,6 +105,7 @@ class _ScenarioKitState extends State<ScenarioKit> {
   late ScenarioController _controller;
   bool _ownsController = false;
   final GlobalKey _screenshotBoundaryKey = GlobalKey();
+  final GlobalKey _appContentKey = GlobalKey();
   late final ScenarioScreenshotService _screenshotService;
   final ValueNotifier<bool> _testsRunning = ValueNotifier<bool>(false);
 
@@ -243,7 +244,10 @@ class _ScenarioKitState extends State<ScenarioKit> {
 
     final content = ScenarioRepaintBoundary(
       boundaryKey: _screenshotBoundaryKey,
-      child: _buildContent(),
+      child: KeyedSubtree(
+        key: _appContentKey,
+        child: _buildContent(),
+      ),
     );
 
     final body = !widget.showFloatingTrigger
@@ -255,14 +259,19 @@ class _ScenarioKitState extends State<ScenarioKit> {
               ValueListenableBuilder<bool>(
                 valueListenable: _testsRunning,
                 builder: (context, running, _) {
-                  if (widget.hideOverlayWhileTestsRun && running) {
-                    return const SizedBox.shrink();
-                  }
-                  return ScenarioFloatingTrigger(
-                    controller: _controller,
-                    testRegistry: widget.testRegistry,
-                    theme: widget.theme,
-                    initialAlignment: widget.floatingTriggerAlignment,
+                  final hidden =
+                      widget.hideOverlayWhileTestsRun && running;
+                  return IgnorePointer(
+                    ignoring: hidden,
+                    child: Opacity(
+                      opacity: hidden ? 0 : 1,
+                      child: ScenarioFloatingTrigger(
+                        controller: _controller,
+                        testRegistry: widget.testRegistry,
+                        theme: widget.theme,
+                        initialAlignment: widget.floatingTriggerAlignment,
+                      ),
+                    ),
                   );
                 },
               ),
@@ -273,6 +282,7 @@ class _ScenarioKitState extends State<ScenarioKit> {
       controller: _controller,
       child: ScenarioKitBindings(
         screenshotBoundaryKey: _screenshotBoundaryKey,
+        appContentKey: _appContentKey,
         screenshotService: _screenshotService,
         testsRunning: _testsRunning,
         child: body,

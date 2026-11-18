@@ -58,6 +58,8 @@ class _ScenarioFloatingTriggerState extends State<ScenarioFloatingTrigger> {
       context: context,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
+      isDismissible: false,
+      enableDrag: true,
       builder: (sheetContext) {
         return Container(
           constraints: BoxConstraints(
@@ -83,6 +85,7 @@ class _ScenarioFloatingTriggerState extends State<ScenarioFloatingTrigger> {
               controller: controller,
               testRegistry: widget.testRegistry,
               theme: panelTheme,
+              testExecutionContext: context,
               onClose: () => Navigator.of(sheetContext).pop(),
             ),
           ),

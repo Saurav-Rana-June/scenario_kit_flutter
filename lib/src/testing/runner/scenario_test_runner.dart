@@ -35,13 +35,17 @@ class ScenarioTestRunner {
   /// Cancels an in-progress execution run.
   void cancel() => executor.cancel();
 
+  BuildContext _resolveContext(BuildContext context) =>
+      ScenarioKitBindings.resolveExecutionContext(context);
+
   ScreenshotCaptureCallback? _screenshotCapture(BuildContext context) {
-    final bindings = ScenarioKitBindings.maybeOf(context);
+    final executionContext = _resolveContext(context);
+    final bindings = ScenarioKitBindings.maybeOf(executionContext);
     if (bindings == null) return null;
     return (name, {stepId, stepDescription}) =>
         bindings.screenshotService.capture(
           name: name,
-          context: context,
+          context: executionContext,
           stepId: stepId,
           stepDescription: stepDescription,
         );
@@ -51,7 +55,8 @@ class ScenarioTestRunner {
     BuildContext context,
     Future<T> Function() run,
   ) async {
-    final bindings = ScenarioKitBindings.maybeOf(context);
+    final executionContext = _resolveContext(context);
+    final bindings = ScenarioKitBindings.maybeOf(executionContext);
     bindings?.testsRunning.value = true;
     try {
       return await run();
@@ -67,10 +72,11 @@ class ScenarioTestRunner {
     Duration stepDelay = Duration.zero,
   }) async {
     final test = registry.requireTestById(testId);
+    final executionContext = _resolveContext(context);
     return _markTestsRunning(context, () {
       return executor.executeTest(
         test,
-        context: context,
+        context: executionContext,
         stepDelay: stepDelay,
         screenshotCapture: _screenshotCapture(context),
       );
@@ -92,10 +98,11 @@ class ScenarioTestRunner {
     }
 
     final startTime = DateTime.now();
+    final executionContext = _resolveContext(context);
     final results = await _markTestsRunning(context, () {
       return executor.executeTests(
         tests,
-        context: context,
+        context: executionContext,
         stopOnFirstFailure: stopOnFirstFailure,
         stepDelay: stepDelay,
         screenshotCapture: _screenshotCapture(context),
@@ -127,10 +134,11 @@ class ScenarioTestRunner {
         : allScreenTests.where((t) => t.group?.trim() == group.trim()).toList();
 
     final startTime = DateTime.now();
+    final executionContext = _resolveContext(context);
     final results = await _markTestsRunning(context, () {
       return executor.executeTests(
         tests,
-        context: context,
+        context: executionContext,
         stopOnFirstFailure: stopOnFirstFailure,
         stepDelay: stepDelay,
         screenshotCapture: _screenshotCapture(context),

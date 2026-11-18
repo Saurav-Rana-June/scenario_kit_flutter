@@ -12,6 +12,7 @@ import '../../testing/reporting/scenario_test_report.dart';
 import '../../testing/runner/execution_mode.dart';
 import '../../testing/runner/scenario_test_runner.dart';
 import '../../testing/runner/screen_execution_summary.dart';
+import '../scenario_kit_bindings.dart';
 import '../theme/scenario_panel_theme.dart';
 import 'scenario_report_viewer.dart';
 
@@ -25,6 +26,7 @@ class ScenarioTestDashboard extends StatefulWidget {
     this.runner,
     this.theme,
     this.onClose,
+    this.executionContext,
   });
 
   /// The registry providing registered test suites and tests.
@@ -38,6 +40,9 @@ class ScenarioTestDashboard extends StatefulWidget {
 
   /// Optional callback invoked when the user taps close.
   final VoidCallback? onClose;
+
+  /// Host context under [ScenarioKit] for in-app test execution (see [ScenarioPanel]).
+  final BuildContext? executionContext;
 
   @override
   State<ScenarioTestDashboard> createState() => _ScenarioTestDashboardState();
@@ -126,6 +131,14 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
     return list;
   }
 
+  BuildContext _executionContext(BuildContext context) {
+    final host = widget.executionContext;
+    if (host != null && host.mounted) {
+      return ScenarioKitBindings.resolveExecutionContext(host);
+    }
+    return ScenarioKitBindings.resolveExecutionContext(context);
+  }
+
   List<String> _getAvailableGroups() {
     final tests = _selectedScreen != null
         ? _registry.getTestsForScreen(_selectedScreen!)
@@ -150,7 +163,10 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
         .toList();
     if (toRun.isEmpty) return;
 
-    final summary = await _runner.runSelectedTests(toRun, context: context);
+    final summary = await _runner.runSelectedTests(
+      toRun,
+      context: _executionContext(context),
+    );
     if (!mounted) return;
     setState(() {
       _lastSummary = summary;
@@ -164,17 +180,19 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
     final filtered = _getFilteredItems();
     if (filtered.isEmpty) return;
 
+    if (mounted) setState(() {});
+
     ScreenExecutionSummary summary;
     if (_selectedScreen != null) {
       summary = await _runner.runScreenTests(
         _selectedScreen!,
         group: _selectedGroup,
-        context: context,
+        context: _executionContext(context),
       );
     } else {
       summary = await _runner.runSelectedTests(
         filtered.map((t) => t.id).toList(),
-        context: context,
+        context: _executionContext(context),
       );
     }
 
@@ -211,7 +229,10 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
 
   Future<void> _runSingleTest(BuildContext context, ScenarioTest test) async {
     final result =
-        await _runner.runFunctionalityTest(test.id, context: context);
+        await _runner.runFunctionalityTest(
+          test.id,
+          context: _executionContext(context),
+        );
     if (!mounted) return;
     setState(() {
       _latestResults[test.id] = result;

@@ -8,11 +8,16 @@ class ScenarioKitBindings extends InheritedWidget {
     super.key,
     required super.child,
     required this.screenshotBoundaryKey,
+    required this.appContentKey,
     required this.screenshotService,
     required this.testsRunning,
   });
 
   final GlobalKey screenshotBoundaryKey;
+
+  /// Anchors the live application UI tree used for in-app functional tests.
+  final GlobalKey appContentKey;
+
   final ScenarioScreenshotService screenshotService;
   final ValueNotifier<bool> testsRunning;
 
@@ -21,10 +26,22 @@ class ScenarioKitBindings extends InheritedWidget {
         .dependOnInheritedWidgetOfExactType<ScenarioKitBindings>();
   }
 
+  /// Context of the app UI under test, when mounted.
+  BuildContext? get appContentContext => appContentKey.currentContext;
+
+  /// Resolves a [BuildContext] suitable for executing tests against the app UI.
+  static BuildContext resolveExecutionContext(BuildContext context) {
+    final bindings = maybeOf(context) ??
+        context.getInheritedWidgetOfExactType<ScenarioKitBindings>();
+    final app = bindings?.appContentContext;
+    if (app != null && app.mounted) return app;
+    return context;
+  }
+
   @override
   bool updateShouldNotify(covariant ScenarioKitBindings oldWidget) {
     return screenshotBoundaryKey != oldWidget.screenshotBoundaryKey ||
-        screenshotService != oldWidget.screenshotService ||
-        testsRunning != oldWidget.testsRunning;
+        appContentKey != oldWidget.appContentKey ||
+        screenshotService != oldWidget.screenshotService;
   }
 }
