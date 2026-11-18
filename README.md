@@ -115,7 +115,7 @@ Add `scenario_kit_flutter` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  scenario_kit_flutter: ^0.2.2
+  scenario_kit_flutter: ^0.2.3
 ```
 
 Then run:
