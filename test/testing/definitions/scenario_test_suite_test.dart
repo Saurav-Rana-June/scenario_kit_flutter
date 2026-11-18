@@ -35,8 +35,7 @@ void main() {
       expect(suite.hasTest('t99'), isFalse);
     });
 
-    test('throws DuplicateTestException when duplicate test IDs are added',
-        () {
+    test('throws DuplicateTestException when duplicate test IDs are added', () {
       final t1 = ScenarioTest(id: 'duplicate_id', name: 'Test 1');
       final t2 = ScenarioTest(id: 'duplicate_id', name: 'Test 2');
 

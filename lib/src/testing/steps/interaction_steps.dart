@@ -3,10 +3,9 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 
 import '../../core/scenario_controller.dart';
-import '../../presentation/scenario_scope.dart';
-import '../executor/in_app_step_context.dart';
 import '../definitions/scenario_test_step.dart';
 import '../definitions/step_finder.dart';
+import '../executor/in_app_step_context.dart';
 import 'scenario_step_context.dart';
 
 /// Step that simulates tapping a target widget.
@@ -277,7 +276,7 @@ class WaitForWidgetStep extends ScenarioTestStep {
 /// Switches the active UI scenario via [ScenarioController.selectById].
 class SelectScenarioStep extends ScenarioTestStep {
   /// Creates a [SelectScenarioStep].
-  SelectScenarioStep({
+  const SelectScenarioStep({
     required this.scenarioId,
     String? id,
     String? description,

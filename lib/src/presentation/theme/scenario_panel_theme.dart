@@ -46,21 +46,21 @@ class ScenarioPanelThemeData {
   /// Factory for clean light developer theme.
   factory ScenarioPanelThemeData.light() {
     return const ScenarioPanelThemeData(
-      backgroundColor: Color(0xFFF8FAFC),
+      backgroundColor: Color(0xFFF7F7FB),
       surfaceColor: Colors.white,
       primaryColor: Color(0xFF4F46E5),
       onPrimaryColor: Colors.white,
-      textColor: Color(0xFF0F172A),
-      subtitleColor: Color(0xFF64748B),
-      borderColor: Color(0xFFE2E8F0),
-      chipColor: Color(0xFFF1F5F9),
-      activeItemColor: Color(0x1F4F46E5),
+      textColor: Color(0xFF14142B),
+      subtitleColor: Color(0xFF4A4A63),
+      borderColor: Color(0xFFE6E6F0),
+      chipColor: Color(0xFFEEEEF6),
+      activeItemColor: Color(0xFFF1F2FF),
       cardColor: Color(0xFFFFFFFF),
-      successColor: Color(0xFF10B981),
-      errorColor: Color(0xFFEF4444),
-      warningColor: Color(0xFFF59E0B),
-      borderRadius: BorderRadius.all(Radius.circular(16)),
-      panelElevation: 8.0,
+      successColor: Color(0xFF0B6B43),
+      errorColor: Color(0xFFB42318),
+      warningColor: Color(0xFF8A4B08),
+      borderRadius: BorderRadius.all(Radius.circular(20)),
+      panelElevation: 24.0,
     );
   }
 

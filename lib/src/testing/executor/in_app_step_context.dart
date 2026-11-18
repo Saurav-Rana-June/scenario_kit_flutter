@@ -209,8 +209,7 @@ class InAppStepContext implements ScenarioStepContext {
       return;
     }
 
-    final activated =
-        Actions.maybeInvoke(element, const ActivateIntent());
+    final activated = Actions.maybeInvoke(element, const ActivateIntent());
     if (activated == true) {
       await pumpAndSettle();
       return;

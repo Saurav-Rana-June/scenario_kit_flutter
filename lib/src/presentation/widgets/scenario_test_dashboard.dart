@@ -27,6 +27,7 @@ class ScenarioTestDashboard extends StatefulWidget {
     this.theme,
     this.onClose,
     this.executionContext,
+    this.onOpenReport,
   });
 
   /// The registry providing registered test suites and tests.
@@ -43,6 +44,9 @@ class ScenarioTestDashboard extends StatefulWidget {
 
   /// Host context under [ScenarioKit] for in-app test execution (see [ScenarioPanel]).
   final BuildContext? executionContext;
+
+  /// Optional callback invoked when the user requests to view the test report.
+  final VoidCallback? onOpenReport;
 
   @override
   State<ScenarioTestDashboard> createState() => _ScenarioTestDashboardState();
@@ -120,11 +124,7 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
             t.screen?.toLowerCase().contains(_searchQuery) ?? false;
         final matchTags =
             t.tags.any((tag) => tag.toLowerCase().contains(_searchQuery));
-        return matchName ||
-            matchDesc ||
-            matchGroup ||
-            matchScreen ||
-            matchTags;
+        return matchName || matchDesc || matchGroup || matchScreen || matchTags;
       }).toList();
     }
 
@@ -228,11 +228,10 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
   }
 
   Future<void> _runSingleTest(BuildContext context, ScenarioTest test) async {
-    final result =
-        await _runner.runFunctionalityTest(
-          test.id,
-          context: _executionContext(context),
-        );
+    final result = await _runner.runFunctionalityTest(
+      test.id,
+      context: _executionContext(context),
+    );
     if (!mounted) return;
     setState(() {
       _latestResults[test.id] = result;

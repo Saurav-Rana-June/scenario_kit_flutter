@@ -1,5 +1,3 @@
-import 'dart:ui' show PointerDeviceKind;
-
 import 'package:flutter/gestures.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/scheduler.dart';
@@ -15,6 +13,7 @@ abstract final class InAppPointerEvents {
 
   static void _hitTestAt(Offset globalPosition) {
     final result = HitTestResult();
+    // ignore: deprecated_member_use
     RendererBinding.instance.hitTest(result, globalPosition);
   }
 
@@ -26,7 +25,7 @@ abstract final class InAppPointerEvents {
   static Future<void> tapAt(Offset globalPosition) async {
     _hitTestAt(globalPosition);
     final pointer = _allocatePointer();
-    final kind = PointerDeviceKind.touch;
+    const kind = PointerDeviceKind.touch;
 
     _send(PointerAddedEvent(pointer: pointer, position: globalPosition));
     _send(PointerDownEvent(
@@ -50,7 +49,7 @@ abstract final class InAppPointerEvents {
   }) async {
     _hitTestAt(globalPosition);
     final pointer = _allocatePointer();
-    final kind = PointerDeviceKind.touch;
+    const kind = PointerDeviceKind.touch;
 
     _send(PointerAddedEvent(pointer: pointer, position: globalPosition));
     _send(PointerDownEvent(
@@ -76,8 +75,7 @@ abstract final class InAppPointerEvents {
   }) async {
     _hitTestAt(start);
     final pointer = _allocatePointer();
-    final kind = PointerDeviceKind.touch;
-    final delta = end - start;
+    const kind = PointerDeviceKind.touch;
 
     _send(PointerAddedEvent(pointer: pointer, position: start));
     _send(PointerDownEvent(pointer: pointer, position: start, kind: kind));
@@ -90,7 +88,8 @@ abstract final class InAppPointerEvents {
       _send(PointerMoveEvent(
         pointer: pointer,
         position: position,
-        delta: position - (i == 1 ? start : Offset.lerp(start, end, (i - 1) / steps)!),
+        delta: position -
+            (i == 1 ? start : Offset.lerp(start, end, (i - 1) / steps)!),
         kind: kind,
       ));
     }

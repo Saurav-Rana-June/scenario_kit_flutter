@@ -64,8 +64,7 @@ void main() {
       expect(registry.totalTestCount, 1);
     });
 
-    test('throws DuplicateTestException on duplicate suite registration',
-        () {
+    test('throws DuplicateTestException on duplicate suite registration', () {
       final suite1 =
           ScenarioTestSuite(screenName: 'LoginScreen', tests: const []);
       final suite2 =

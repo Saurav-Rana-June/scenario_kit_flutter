@@ -54,44 +54,87 @@ class _ScenarioFloatingTriggerState extends State<ScenarioFloatingTrigger> {
 
   void _openPanel(BuildContext context, ScenarioController controller) {
     final panelTheme = _resolveTheme(context);
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      isDismissible: false,
-      enableDrag: true,
-      builder: (sheetContext) {
-        return Container(
-          constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(sheetContext).size.height * 0.85,
-          ),
-          decoration: BoxDecoration(
-            color: panelTheme.backgroundColor,
-            borderRadius: BorderRadius.only(
-              topLeft: panelTheme.borderRadius.topLeft,
-              topRight: panelTheme.borderRadius.topRight,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: panelTheme.panelElevation * 2,
-                offset: const Offset(0, -6),
+    final size = MediaQuery.of(context).size;
+    final isStudioMode = size.width >= 800;
+
+    if (isStudioMode) {
+      showDialog<void>(
+        context: context,
+        barrierColor: const Color(0x732A2A44),
+        builder: (dialogContext) {
+          return Center(
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                width: 1020,
+                height: 800,
+                constraints: BoxConstraints(
+                  maxWidth: size.width * 0.94,
+                  maxHeight: size.height * 0.94,
+                ),
+                decoration: BoxDecoration(
+                  color: panelTheme.backgroundColor,
+                  borderRadius: BorderRadius.circular(20),
+                  boxShadow: const [
+                    BoxShadow(
+                      color: Color(0x73000000),
+                      blurRadius: 80,
+                      offset: Offset(0, 24),
+                    ),
+                  ],
+                ),
+                clipBehavior: Clip.antiAlias,
+                child: ScenarioPanel(
+                  controller: controller,
+                  testRegistry: widget.testRegistry,
+                  theme: panelTheme,
+                  testExecutionContext: context,
+                  onClose: () => Navigator.of(dialogContext).pop(),
+                ),
               ),
-            ],
-          ),
-          child: SafeArea(
-            top: false,
-            child: ScenarioPanel(
-              controller: controller,
-              testRegistry: widget.testRegistry,
-              theme: panelTheme,
-              testExecutionContext: context,
-              onClose: () => Navigator.of(sheetContext).pop(),
             ),
-          ),
-        );
-      },
-    );
+          );
+        },
+      );
+    } else {
+      showModalBottomSheet<void>(
+        context: context,
+        backgroundColor: Colors.transparent,
+        isScrollControlled: true,
+        builder: (sheetContext) {
+          return Container(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(sheetContext).size.height * 0.90,
+            ),
+            decoration: BoxDecoration(
+              color: panelTheme.backgroundColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.35),
+                  blurRadius: panelTheme.panelElevation * 2,
+                  offset: const Offset(0, -6),
+                ),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: SafeArea(
+              top: false,
+              child: ScenarioPanel(
+                controller: controller,
+                testRegistry: widget.testRegistry,
+                theme: panelTheme,
+                testExecutionContext: context,
+                onClose: () => Navigator.of(sheetContext).pop(),
+              ),
+            ),
+          );
+        },
+      );
+    }
   }
 
   @override

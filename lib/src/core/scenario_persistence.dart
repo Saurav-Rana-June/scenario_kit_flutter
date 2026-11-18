@@ -8,7 +8,8 @@ abstract class ScenarioSelectionPersistence {
 }
 
 /// In-memory persistence (resets when the process ends).
-class InMemoryScenarioSelectionPersistence implements ScenarioSelectionPersistence {
+class InMemoryScenarioSelectionPersistence
+    implements ScenarioSelectionPersistence {
   String? _lastId;
 
   @override

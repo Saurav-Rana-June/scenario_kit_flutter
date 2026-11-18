@@ -156,7 +156,8 @@ class _ScenarioKitState extends State<ScenarioKit> {
 
   List<Scenario> _buildEffectiveScenarios() {
     final input = widget.scenarios ?? const <Scenario>[];
-    if (widget.child == null || _resolvedContentMode != ScenarioKitContentMode.hybrid) {
+    if (widget.child == null ||
+        _resolvedContentMode != ScenarioKitContentMode.hybrid) {
       return input;
     }
 
@@ -259,8 +260,7 @@ class _ScenarioKitState extends State<ScenarioKit> {
               ValueListenableBuilder<bool>(
                 valueListenable: _testsRunning,
                 builder: (context, running, _) {
-                  final hidden =
-                      widget.hideOverlayWhileTestsRun && running;
+                  final hidden = widget.hideOverlayWhileTestsRun && running;
                   return IgnorePointer(
                     ignoring: hidden,
                     child: Opacity(

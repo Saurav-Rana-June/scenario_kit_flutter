@@ -22,8 +22,7 @@ class ScenarioKitBindings extends InheritedWidget {
   final ValueNotifier<bool> testsRunning;
 
   static ScenarioKitBindings? maybeOf(BuildContext context) {
-    return context
-        .dependOnInheritedWidgetOfExactType<ScenarioKitBindings>();
+    return context.dependOnInheritedWidgetOfExactType<ScenarioKitBindings>();
   }
 
   /// Context of the app UI under test, when mounted.
