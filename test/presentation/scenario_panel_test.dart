@@ -176,5 +176,56 @@ void main() {
 
       expect(find.text('Login Screen Metadata'), findsNothing);
     });
+
+    testWidgets('switches seamlessly across Scenarios, Tests, and Reports tabs',
+        (tester) async {
+      final testRegistry = ScenarioTestRegistry();
+      testRegistry.registerTest(
+        ScenarioTest(
+          id: 'test_panel',
+          name: 'Panel Verification Test',
+          screen: 'Login Screen',
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ScenarioPanel(
+              controller: controller,
+              testRegistry: testRegistry,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Check all 3 tabs exist in header
+      expect(find.byKey(const ValueKey('panel_tab_scenarios')), findsOneWidget);
+      expect(find.byKey(const ValueKey('panel_tab_tests')), findsOneWidget);
+      expect(find.byKey(const ValueKey('panel_tab_reports')), findsOneWidget);
+
+      // Initially on Scenarios
+      expect(find.text('Login Screen'), findsOneWidget);
+
+      // Switch to Reports tab
+      await tester.tap(find.byKey(const ValueKey('panel_tab_reports')));
+      await tester.pumpAndSettle();
+
+      // Reports empty state is displayed
+      expect(find.text('No test runs yet'), findsOneWidget);
+
+      // Switch to Tests tab
+      await tester.tap(find.byKey(const ValueKey('panel_tab_tests')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Panel Verification Test'), findsOneWidget);
+
+      // Switch back to Scenarios tab
+      await tester.tap(find.byKey(const ValueKey('panel_tab_scenarios')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Login Screen'), findsOneWidget);
+    });
   });
 }

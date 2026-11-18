@@ -8,6 +8,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **UI/UX Redesign of Developer Bottom Sheet**: Redesigned developer bottom sheet chrome with a clean, friendly light-theme visual console (Notion/Linear style) matching light-mode visual design standards.
+- **Three-Tab Navigation Architecture**:
+  - `Scenarios`: Search with keyboard shortcut `/`, group filter chips with counts, responsive scenario cards with `DEFAULT` and `✓ Active` badges, `Applied`, `Apply scenario`, and `Apply and preview` actions.
+  - `Tests`: Screen/group/tag filters, search with `View report` action, select-all batch controls, `Run Selected` and `Run All` buttons, aligned per-test execution cards with status dots and play buttons, and screen mismatch guards with navigation hooks.
+  - `Reports`: Dedicated test inspection tab with session run history, pass/fail counts, duration, success rates, filter chips (`All`, `Failed`, `Passed`), expandable test result cards showing assertion error banners, step-by-step traces with colored indicator dots, screenshot enlargement, and `Copy JSON` / `Copy HTML` / `View Full Report` export parity.
+- **ScenarioReportStore**: Ambient reactive session store tracking completed test run summaries and driving the Reports tab.
+- **Strict Light-Mode Sheet Chrome**: Bottom sheet chrome consistently resolves to `ScenarioPanelThemeData.light()` with light Material theme wrapping, preventing dark-mode fallbacks or contrast conflicts regardless of host app theme.
+
+### Added
 - **Active screen awareness**: `ScenarioKit.screenName` and `onNavigateToScreen`; Test Mode auto-filters to the mounted screen, marks the active chip, and shows a mismatch warning with optional **Go to Screen** navigation.
 - Test Mode **execution guards**: block bulk run on screen mismatch; per-test play prompts navigation instead of failing assertions on the wrong widget tree.
 - `ScenarioScope.maybeActiveScreenNameOf` / `maybeNavigateToScreenOf` for host apps.

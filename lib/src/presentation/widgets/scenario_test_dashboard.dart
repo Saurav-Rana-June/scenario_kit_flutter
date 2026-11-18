@@ -1,13 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../../testing/definitions/scenario_test.dart';
 import '../../testing/definitions/test_status.dart';
 import '../../testing/executor/test_execution_progress.dart';
 import '../../testing/executor/test_execution_result.dart';
 import '../../testing/registry/scenario_test_registry.dart';
-import '../../testing/reporting/html_report_exporter.dart';
-import '../../testing/reporting/json_report_exporter.dart';
+import '../../testing/reporting/scenario_report_store.dart';
 import '../../testing/reporting/scenario_test_report.dart';
 import '../../testing/runner/execution_mode.dart';
 import '../../testing/runner/scenario_test_runner.dart';
@@ -29,6 +27,8 @@ class ScenarioTestDashboard extends StatefulWidget {
     this.executionContext,
     this.currentScreenName,
     this.onNavigateToScreen,
+    this.onExecutionCompleted,
+    this.onViewReport,
   });
 
   /// The registry providing registered test suites and tests.
@@ -51,6 +51,12 @@ class ScenarioTestDashboard extends StatefulWidget {
 
   /// Invoked when the user chooses to navigate to the selected test screen.
   final void Function(String screenName)? onNavigateToScreen;
+
+  /// Optional callback invoked when test execution completes.
+  final void Function(ScreenExecutionSummary summary)? onExecutionCompleted;
+
+  /// Optional callback invoked when the user taps View Report.
+  final VoidCallback? onViewReport;
 
   @override
   State<ScenarioTestDashboard> createState() => _ScenarioTestDashboardState();
@@ -209,6 +215,8 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
         _latestResults[r.testId] = r;
       }
     });
+    ScenarioReportStore.instance.recordSummary(summary);
+    widget.onExecutionCompleted?.call(summary);
   }
 
   Future<void> _runAllTests(BuildContext context) async {
@@ -239,28 +247,8 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
         _latestResults[r.testId] = r;
       }
     });
-  }
-
-  void _copyReportJson() {
-    final summary = _lastSummary;
-    if (summary == null) return;
-    final report = ScenarioTestReport.fromSummaries(
-      title: 'In-App Test Report',
-      summaries: [summary],
-    );
-    final json = const JsonReportExporter().export(report);
-    Clipboard.setData(ClipboardData(text: json));
-  }
-
-  void _copyReportHtml() {
-    final summary = _lastSummary;
-    if (summary == null) return;
-    final report = ScenarioTestReport.fromSummaries(
-      title: 'In-App Test Report',
-      summaries: [summary],
-    );
-    final html = const HtmlReportExporter().export(report);
-    Clipboard.setData(ClipboardData(text: html));
+    ScenarioReportStore.instance.recordSummary(summary);
+    widget.onExecutionCompleted?.call(summary);
   }
 
   void _handleTapRunSingleTest(BuildContext context, ScenarioTest test) {
@@ -282,7 +270,7 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
     BuildContext context, {
     required String targetScreen,
   }) {
-    final panelTheme = widget.theme ?? ScenarioPanelThemeData.dark();
+    final panelTheme = widget.theme ?? ScenarioPanelThemeData.light();
     final hasNavigation = widget.onNavigateToScreen != null;
 
     showDialog<void>(
@@ -351,23 +339,26 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
       context: _executionContext(context),
     );
     if (!mounted) return;
+    final summary = ScreenExecutionSummary.fromResults(
+      executionMode: _selectedScreen != null
+          ? ExecutionMode.screen
+          : ExecutionMode.functionality,
+      results: [result],
+      startTime: result.timestamp,
+      endTime: result.timestamp.add(result.duration),
+      screenName: test.screen,
+    );
     setState(() {
       _latestResults[test.id] = result;
-      _lastSummary = ScreenExecutionSummary.fromResults(
-        executionMode: _selectedScreen != null
-            ? ExecutionMode.screen
-            : ExecutionMode.functionality,
-        results: [result],
-        startTime: result.timestamp,
-        endTime: result.timestamp.add(result.duration),
-        screenName: test.screen,
-      );
+      _lastSummary = summary;
     });
+    ScenarioReportStore.instance.recordSummary(summary);
+    widget.onExecutionCompleted?.call(summary);
   }
 
   @override
   Widget build(BuildContext context) {
-    final panelTheme = widget.theme ?? ScenarioPanelThemeData.dark();
+    final panelTheme = widget.theme ?? ScenarioPanelThemeData.light();
     final filteredTests = _getFilteredItems();
     final screens = _registry.screens;
     final groups = _getAvailableGroups();
@@ -475,49 +466,6 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
             ),
           ),
           const Spacer(),
-          if (_lastSummary != null) ...[
-            IconButton(
-              tooltip: 'Copy JSON report',
-              icon: const Icon(Icons.data_object_rounded, size: 18),
-              onPressed: () => _copyReportJson(),
-            ),
-            IconButton(
-              tooltip: 'Copy HTML report',
-              icon: const Icon(Icons.html_rounded, size: 18),
-              onPressed: () => _copyReportHtml(),
-            ),
-            FilledButton.tonalIcon(
-              key: const ValueKey('view_report_button'),
-              icon: const Icon(Icons.bar_chart_rounded, size: 16),
-              label: const Text('View Report'),
-              style: FilledButton.styleFrom(
-                backgroundColor:
-                    panelTheme.primaryColor.withValues(alpha: 0.15),
-                foregroundColor: panelTheme.primaryColor,
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                visualDensity: VisualDensity.compact,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(20),
-                  side: BorderSide(
-                    color: panelTheme.primaryColor.withValues(alpha: 0.3),
-                  ),
-                ),
-              ),
-              onPressed: () {
-                final report = ScenarioTestReport.fromSummaries(
-                  title: 'In-App Test Report',
-                  summaries: [_lastSummary!],
-                );
-                ScenarioReportViewerDialog.show(
-                  context,
-                  report: report,
-                  theme: panelTheme,
-                );
-              },
-            ),
-            const SizedBox(width: 8),
-          ],
           if (widget.onClose != null)
             IconButton(
               icon: Icon(
@@ -813,55 +761,95 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
   Widget _buildSearchBar(ScenarioPanelThemeData panelTheme) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
-      child: TextField(
-        controller: _searchController,
-        style: TextStyle(color: panelTheme.textColor, fontSize: 13),
-        decoration: InputDecoration(
-          hintText: 'Search test cases or steps...',
-          hintStyle: TextStyle(
-            color: panelTheme.subtitleColor.withValues(alpha: 0.6),
-            fontSize: 13,
-          ),
-          prefixIcon: Icon(
-            Icons.search_rounded,
-            color: panelTheme.primaryColor.withValues(alpha: 0.8),
-            size: 18,
-          ),
-          suffixIcon: _searchQuery.isNotEmpty
-              ? IconButton(
-                  icon: Icon(
-                    Icons.clear_rounded,
-                    color: panelTheme.subtitleColor,
-                    size: 16,
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _searchController,
+              style: TextStyle(color: panelTheme.textColor, fontSize: 13),
+              decoration: InputDecoration(
+                hintText: 'Search test cases or steps',
+                hintStyle: TextStyle(
+                  color: panelTheme.subtitleColor.withValues(alpha: 0.6),
+                  fontSize: 13,
+                ),
+                prefixIcon: Icon(
+                  Icons.search_rounded,
+                  color: panelTheme.primaryColor.withValues(alpha: 0.8),
+                  size: 18,
+                ),
+                suffixIcon: _searchQuery.isNotEmpty
+                    ? IconButton(
+                        icon: Icon(
+                          Icons.clear_rounded,
+                          color: panelTheme.subtitleColor,
+                          size: 16,
+                        ),
+                        onPressed: () => _searchController.clear(),
+                      )
+                    : null,
+                filled: true,
+                fillColor: panelTheme.surfaceColor,
+                isDense: true,
+                contentPadding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: panelTheme.borderColor.withValues(alpha: 0.8),
                   ),
-                  onPressed: () => _searchController.clear(),
-                )
-              : null,
-          filled: true,
-          fillColor: panelTheme.surfaceColor,
-          isDense: true,
-          contentPadding:
-              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: panelTheme.borderColor.withValues(alpha: 0.8),
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: panelTheme.borderColor.withValues(alpha: 0.8),
+                  ),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(
+                    color: panelTheme.primaryColor,
+                    width: 1.5,
+                  ),
+                ),
+              ),
             ),
           ),
-          enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: panelTheme.borderColor.withValues(alpha: 0.8),
+          if (_lastSummary != null) ...[
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              key: const ValueKey('view_report_button'),
+              icon: const Icon(Icons.bar_chart_rounded, size: 16),
+              label: const Text('View report', style: TextStyle(fontSize: 12)),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: panelTheme.primaryColor,
+                side: BorderSide(
+                  color: panelTheme.primaryColor.withValues(alpha: 0.4),
+                ),
+                backgroundColor: panelTheme.surfaceColor,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10),
+                ),
+              ),
+              onPressed: () {
+                if (widget.onViewReport != null) {
+                  widget.onViewReport!();
+                } else {
+                  final report = ScenarioTestReport.fromSummaries(
+                    title: 'In-App Test Report',
+                    summaries: [_lastSummary!],
+                  );
+                  ScenarioReportViewerDialog.show(
+                    context,
+                    report: report,
+                    theme: panelTheme,
+                  );
+                }
+              },
             ),
-          ),
-          focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: panelTheme.primaryColor,
-              width: 1.5,
-            ),
-          ),
-        ),
+          ],
+        ],
       ),
     );
   }
@@ -961,44 +949,40 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
               )
             else ...[
               OutlinedButton.icon(
-                key: const ValueKey('run_all_button'),
-                icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                label: const Text('Run All'),
+                key: const ValueKey('run_selected_button'),
+                icon: const Icon(Icons.playlist_play_rounded, size: 16),
+                label: Text('Run Selected (${_selectedTestIds.length})'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: panelTheme.textColor,
-                  side: BorderSide(
-                    color: panelTheme.borderColor,
-                    width: 1.2,
-                  ),
+                  side: BorderSide(color: panelTheme.borderColor),
                   backgroundColor: panelTheme.surfaceColor,
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  visualDensity: VisualDensity.compact,
-                ),
-                onPressed: () => _runAllTests(context),
-              ),
-              const SizedBox(width: 8),
-              FilledButton.icon(
-                key: const ValueKey('run_selected_button'),
-                icon: const Icon(Icons.play_arrow_rounded, size: 16),
-                label: Text('Run Selected (${_selectedTestIds.length})'),
-                style: FilledButton.styleFrom(
-                  backgroundColor: panelTheme.primaryColor,
-                  foregroundColor: panelTheme.onPrimaryColor,
-                  elevation: 2,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: BorderRadius.circular(10),
                   ),
                   visualDensity: VisualDensity.compact,
                 ),
                 onPressed: _selectedTestIds.isEmpty
                     ? null
                     : () => _runSelectedTests(context),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.icon(
+                key: const ValueKey('run_all_button'),
+                icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                label: const Text('Run All'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: panelTheme.primaryColor,
+                  foregroundColor: panelTheme.onPrimaryColor,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  visualDensity: VisualDensity.compact,
+                ),
+                onPressed: () => _runAllTests(context),
               ),
             ],
           ],
@@ -1276,6 +1260,35 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
                       ],
                     ),
                   ),
+                  if (latest != null) ...[
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: (latest.isFailed
+                                ? panelTheme.errorColor
+                                : panelTheme.successColor)
+                            .withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(
+                          color: (latest.isFailed
+                                  ? panelTheme.errorColor
+                                  : panelTheme.successColor)
+                              .withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Text(
+                        latest.isFailed ? 'FAILED' : 'PASSED',
+                        style: TextStyle(
+                          color: latest.isFailed
+                              ? panelTheme.errorColor
+                              : panelTheme.successColor,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                  ],
                   IconButton(
                     key: ValueKey('run_single_${test.id}'),
                     icon: Icon(

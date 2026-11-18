@@ -1,20 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../core/scenario.dart';
 import '../../core/scenario_controller.dart';
 import '../../testing/registry/scenario_test_registry.dart';
+import '../../testing/reporting/html_report_exporter.dart';
+import '../../testing/reporting/json_report_exporter.dart';
+import '../../testing/reporting/scenario_report_store.dart';
+import '../../testing/reporting/scenario_test_report.dart';
 import '../scenario_scope.dart';
 import '../theme/scenario_panel_theme.dart';
+import 'scenario_report_viewer.dart';
+import 'scenario_reports_tab.dart';
 import 'scenario_test_dashboard.dart';
 
 /// Developer panel widget for searching, organizing, inspecting, and switching
-/// between registered scenarios.
+/// between registered scenarios, executing in-app tests, and reviewing test reports.
 class ScenarioPanel extends StatefulWidget {
   /// Creates a [ScenarioPanel].
   const ScenarioPanel({
     super.key,
     this.controller,
     this.testRegistry,
+    this.reportStore,
     this.theme,
     this.onClose,
     this.showHeader = true,
@@ -29,7 +37,10 @@ class ScenarioPanel extends StatefulWidget {
   /// Optional test registry. If omitted, resolves to ambient [ScenarioTestRegistry.instance].
   final ScenarioTestRegistry? testRegistry;
 
-  /// Custom theme for the panel. Defaults to ambient dark or light theme.
+  /// Optional report store. If omitted, resolves to ambient [ScenarioReportStore.instance].
+  final ScenarioReportStore? reportStore;
+
+  /// Custom theme for the panel. Defaults to ambient clean light theme.
   final ScenarioPanelThemeData? theme;
 
   /// Optional callback invoked when the user taps the close button.
@@ -53,18 +64,25 @@ class ScenarioPanel extends StatefulWidget {
   State<ScenarioPanel> createState() => _ScenarioPanelState();
 }
 
-enum _PanelTab { scenarios, tests }
+enum _PanelTab { scenarios, tests, reports }
 
 class _ScenarioPanelState extends State<ScenarioPanel> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
   String? _selectedGroupFilter; // null means 'All'
   _PanelTab _activeTab = _PanelTab.scenarios;
+  late final ScenarioReportStore _reportStore;
 
   @override
   void initState() {
     super.initState();
+    _reportStore = widget.reportStore ?? ScenarioReportStore.instance;
+    _reportStore.addListener(_onStoreChanged);
     _searchController.addListener(_onSearchChanged);
+  }
+
+  void _onStoreChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onSearchChanged() {
@@ -78,13 +96,14 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
 
   @override
   void dispose() {
+    _reportStore.removeListener(_onStoreChanged);
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
   }
 
   ScenarioPanelThemeData _resolveTheme(BuildContext context) {
-    return widget.theme ?? ScenarioPanelThemeData.dark();
+    return widget.theme ?? ScenarioPanelThemeData.light();
   }
 
   List<Scenario> _filterScenarios(List<Scenario> all) {
@@ -214,14 +233,100 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
     );
   }
 
+  void _handleExportReport(
+    BuildContext context,
+    ScenarioPanelThemeData panelTheme,
+  ) {
+    final summary = _reportStore.latestSummary;
+    if (summary == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No test runs to export yet. Run tests first.'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+      return;
+    }
+
+    final report = ScenarioTestReport.fromSummaries(
+      title: 'In-App Test Report',
+      summaries: [summary],
+    );
+
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: panelTheme.surfaceColor,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (sheetCtx) {
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: panelTheme.subtitleColor.withValues(alpha: 0.3),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                ListTile(
+                  leading: const Icon(Icons.code_rounded),
+                  title: const Text('Copy JSON Report'),
+                  onTap: () {
+                    Navigator.of(sheetCtx).pop();
+                    final json = const JsonReportExporter().export(report);
+                    Clipboard.setData(ClipboardData(text: json));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('JSON Report copied')),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.html_rounded),
+                  title: const Text('Copy HTML Report'),
+                  onTap: () {
+                    Navigator.of(sheetCtx).pop();
+                    final html = const HtmlReportExporter().export(report);
+                    Clipboard.setData(ClipboardData(text: html));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('HTML Report copied')),
+                    );
+                  },
+                ),
+                ListTile(
+                  leading: const Icon(Icons.open_in_new_rounded),
+                  title: const Text('View Full Report Dialog'),
+                  onTap: () {
+                    Navigator.of(sheetCtx).pop();
+                    ScenarioReportViewerDialog.show(
+                      context,
+                      report: report,
+                      theme: panelTheme,
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = widget.controller ?? ScenarioScope.of(context);
     final panelTheme = _resolveTheme(context);
 
-    final darkMaterialTheme = ThemeData(
-      brightness: Brightness.dark,
-      colorScheme: ColorScheme.dark(
+    final lightMaterialTheme = ThemeData(
+      brightness: Brightness.light,
+      colorScheme: ColorScheme.light(
         primary: panelTheme.primaryColor,
         surface: panelTheme.surfaceColor,
         onSurface: panelTheme.textColor,
@@ -230,89 +335,36 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
       useMaterial3: true,
     );
 
-    if (_activeTab == _PanelTab.tests) {
-      final testRegistry = widget.testRegistry ?? ScenarioTestRegistry.instance;
-      final totalCount = testRegistry.totalTestCount;
-      return Theme(
-        data: darkMaterialTheme,
-        child: Material(
-          color: panelTheme.backgroundColor,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              if (widget.showHeader) ...[
-                _buildDragHandle(panelTheme),
-                _buildHeader(context, controller, panelTheme, totalCount),
-              ],
-              Expanded(
-              child: ScenarioTestDashboard(
-                registry: widget.testRegistry,
-                theme: panelTheme,
-                onClose: widget.onClose,
-                executionContext: widget.testExecutionContext,
-                currentScreenName: widget.screenName ??
-                    ScenarioScope.maybeActiveScreenNameOf(context),
-                onNavigateToScreen: widget.onNavigateToScreen ??
-                    ScenarioScope.maybeNavigateToScreenOf(context),
-              ),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
     return Theme(
-      data: darkMaterialTheme,
+      data: lightMaterialTheme,
       child: AnimatedBuilder(
         animation: controller,
         builder: (context, _) {
           final scenarios = controller.registry.scenarios;
-          final filtered = _filterScenarios(scenarios);
-          final groups = controller.registry.groups;
+          final testRegistry = widget.testRegistry ?? ScenarioTestRegistry.instance;
 
           return Material(
             color: panelTheme.backgroundColor,
             child: Column(
-              mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 if (widget.showHeader) ...[
                   _buildDragHandle(panelTheme),
                   _buildHeader(
-                      context, controller, panelTheme, scenarios.length),
+                    context,
+                    controller,
+                    panelTheme,
+                    scenarios.length,
+                    testRegistry.totalTestCount,
+                  ),
                 ],
-                _buildSearchBar(panelTheme),
-                if (groups.isNotEmpty) _buildGroupFilters(groups, panelTheme),
-                Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: panelTheme.borderColor.withValues(alpha: 0.6),
-                ),
-                Flexible(
-                  child: filtered.isEmpty
-                      ? _buildEmptyResults(panelTheme)
-                      : ListView.separated(
-                          shrinkWrap: true,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16.0,
-                            vertical: 12.0,
-                          ),
-                          itemCount: filtered.length,
-                          separatorBuilder: (_, __) =>
-                              const SizedBox(height: 8),
-                          itemBuilder: (context, index) {
-                            final scenario = filtered[index];
-                            final isSelected = controller.isSelected(scenario);
-                            return _buildScenarioCard(
-                              context,
-                              scenario,
-                              isSelected,
-                              controller,
-                              panelTheme,
-                            );
-                          },
-                        ),
+                Expanded(
+                  child: _buildActiveTabBody(
+                    context,
+                    controller,
+                    scenarios,
+                    panelTheme,
+                  ),
                 ),
               ],
             ),
@@ -322,14 +374,70 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
     );
   }
 
+  Widget _buildActiveTabBody(
+    BuildContext context,
+    ScenarioController controller,
+    List<Scenario> scenarios,
+    ScenarioPanelThemeData panelTheme,
+  ) {
+    switch (_activeTab) {
+      case _PanelTab.scenarios:
+        final filtered = _filterScenarios(scenarios);
+        final groups = controller.registry.groups;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _buildSearchBar(panelTheme),
+            if (groups.isNotEmpty)
+              _buildGroupFilters(groups, panelTheme, scenarios),
+            Divider(
+              height: 1,
+              thickness: 1,
+              color: panelTheme.borderColor.withValues(alpha: 0.6),
+            ),
+            Expanded(
+              child: filtered.isEmpty
+                  ? _buildEmptyResults(panelTheme)
+                  : _buildScenariosGrid(
+                      context,
+                      filtered,
+                      controller,
+                      panelTheme,
+                    ),
+            ),
+          ],
+        );
+
+      case _PanelTab.tests:
+        return ScenarioTestDashboard(
+          registry: widget.testRegistry,
+          theme: panelTheme,
+          onClose: widget.onClose,
+          executionContext: widget.testExecutionContext,
+          currentScreenName: widget.screenName ??
+              ScenarioScope.maybeActiveScreenNameOf(context),
+          onNavigateToScreen: widget.onNavigateToScreen ??
+              ScenarioScope.maybeNavigateToScreenOf(context),
+          onViewReport: () => setState(() => _activeTab = _PanelTab.reports),
+        );
+
+      case _PanelTab.reports:
+        return ScenarioReportsTab(
+          reportStore: _reportStore,
+          theme: panelTheme,
+          onSwitchToTests: () => setState(() => _activeTab = _PanelTab.tests),
+        );
+    }
+  }
+
   Widget _buildDragHandle(ScenarioPanelThemeData panelTheme) {
     return Center(
       child: Container(
-        margin: const EdgeInsets.only(top: 8, bottom: 2),
+        margin: const EdgeInsets.only(top: 8, bottom: 4),
         width: 36,
         height: 4,
         decoration: BoxDecoration(
-          color: panelTheme.subtitleColor.withValues(alpha: 0.3),
+          color: const Color(0xFFCBD5E1),
           borderRadius: BorderRadius.circular(2),
         ),
       ),
@@ -340,230 +448,286 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
     BuildContext context,
     ScenarioController controller,
     ScenarioPanelThemeData panelTheme,
-    int totalCount,
+    int scenariosCount,
+    int testsCount,
   ) {
-    final testRegistry = widget.testRegistry ?? ScenarioTestRegistry.instance;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isCompact = constraints.maxWidth < 820;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 8, 8, 10),
-      decoration: BoxDecoration(
-        color: panelTheme.surfaceColor,
-        border: Border(
-          bottom: BorderSide(
-            color: panelTheme.borderColor.withValues(alpha: 0.7),
-          ),
-        ),
-      ),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(5),
+        if (isCompact) {
+          return Container(
+            padding: const EdgeInsets.fromLTRB(16, 6, 12, 10),
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  panelTheme.primaryColor,
-                  panelTheme.primaryColor.withValues(alpha: 0.7),
-                ],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(7),
-              boxShadow: [
-                BoxShadow(
-                  color: panelTheme.primaryColor.withValues(alpha: 0.25),
-                  blurRadius: 4,
-                  offset: const Offset(0, 1),
+              color: panelTheme.surfaceColor,
+              border: Border(
+                bottom: BorderSide(
+                  color: panelTheme.borderColor.withValues(alpha: 0.8),
                 ),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Row(
+                  children: [
+                    _buildBrandLogo(panelTheme),
+                    const SizedBox(width: 8),
+                    _buildBrandTitle(panelTheme),
+                    const Spacer(),
+                    _buildHeaderActions(context, controller, panelTheme),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                _buildSegmentedTabBar(panelTheme, scenariosCount, testsCount),
               ],
             ),
-            child: const Icon(
-              Icons.tune_rounded,
-              size: 14,
-              color: Colors.white,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'ScenarioKit',
-            style: TextStyle(
-              color: panelTheme.textColor,
-              fontSize: 15,
-              fontWeight: FontWeight.bold,
-              letterSpacing: -0.3,
-            ),
-          ),
-          const SizedBox(width: 6),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: panelTheme.chipColor,
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
+          );
+        }
+
+        return Container(
+          padding: const EdgeInsets.fromLTRB(16, 8, 12, 10),
+          decoration: BoxDecoration(
+            color: panelTheme.surfaceColor,
+            border: Border(
+              bottom: BorderSide(
                 color: panelTheme.borderColor.withValues(alpha: 0.8),
               ),
             ),
-            child: Text(
-              '$totalCount',
-              style: TextStyle(
-                color: panelTheme.subtitleColor,
-                fontSize: 10,
-                fontWeight: FontWeight.bold,
-              ),
+          ),
+          child: Row(
+            children: [
+              _buildBrandLogo(panelTheme),
+              const SizedBox(width: 8),
+              _buildBrandTitle(panelTheme),
+              const SizedBox(width: 14),
+              _buildSegmentedTabBar(panelTheme, scenariosCount, testsCount),
+              const Spacer(),
+              _buildHeaderActions(context, controller, panelTheme),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildBrandLogo(ScenarioPanelThemeData panelTheme) {
+    return Container(
+      width: 28,
+      height: 28,
+      decoration: BoxDecoration(
+        color: panelTheme.primaryColor,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: const Icon(
+        Icons.tune_rounded,
+        size: 16,
+        color: Colors.white,
+      ),
+    );
+  }
+
+  Widget _buildBrandTitle(ScenarioPanelThemeData panelTheme) {
+    return Text(
+      'ScenarioKit',
+      style: TextStyle(
+        color: panelTheme.textColor,
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        letterSpacing: -0.3,
+      ),
+    );
+  }
+
+  Widget _buildHeaderActions(
+    BuildContext context,
+    ScenarioController controller,
+    ScenarioPanelThemeData panelTheme,
+  ) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        OutlinedButton.icon(
+          key: const ValueKey('panel_export_button'),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: panelTheme.textColor,
+            side: BorderSide(color: panelTheme.borderColor),
+            backgroundColor: panelTheme.surfaceColor,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            minimumSize: Size.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
             ),
           ),
-          if (testRegistry.isNotEmpty) ...[
-            const SizedBox(width: 8),
-            Container(
-              decoration: BoxDecoration(
-                color: panelTheme.chipColor,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(
-                  color: panelTheme.borderColor.withValues(alpha: 0.7),
-                ),
-              ),
-              padding: const EdgeInsets.all(2),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  InkWell(
-                    key: const ValueKey('panel_tab_scenarios'),
-                    onTap: () =>
-                        setState(() => _activeTab = _PanelTab.scenarios),
-                    borderRadius: BorderRadius.circular(6),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: _activeTab == _PanelTab.scenarios
-                            ? panelTheme.primaryColor
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(6),
-                        boxShadow: _activeTab == _PanelTab.scenarios
-                            ? [
-                                BoxShadow(
-                                  color: panelTheme.primaryColor
-                                      .withValues(alpha: 0.35),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.layers_rounded,
-                            size: 11,
-                            color: _activeTab == _PanelTab.scenarios
-                                ? panelTheme.onPrimaryColor
-                                : panelTheme.subtitleColor,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            'Scenarios',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: _activeTab == _PanelTab.scenarios
-                                  ? panelTheme.onPrimaryColor
-                                  : panelTheme.subtitleColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 2),
-                  InkWell(
-                    key: const ValueKey('panel_tab_tests'),
-                    onTap: () => setState(() => _activeTab = _PanelTab.tests),
-                    borderRadius: BorderRadius.circular(6),
-                    child: AnimatedContainer(
-                      duration: const Duration(milliseconds: 150),
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 8, vertical: 3),
-                      decoration: BoxDecoration(
-                        color: _activeTab == _PanelTab.tests
-                            ? panelTheme.primaryColor
-                            : Colors.transparent,
-                        borderRadius: BorderRadius.circular(6),
-                        boxShadow: _activeTab == _PanelTab.tests
-                            ? [
-                                BoxShadow(
-                                  color: panelTheme.primaryColor
-                                      .withValues(alpha: 0.35),
-                                  blurRadius: 4,
-                                  offset: const Offset(0, 1),
-                                ),
-                              ]
-                            : null,
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.checklist_rounded,
-                            size: 12,
-                            color: _activeTab == _PanelTab.tests
-                                ? panelTheme.onPrimaryColor
-                                : panelTheme.subtitleColor,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            'Tests (${testRegistry.totalTestCount})',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w600,
-                              color: _activeTab == _PanelTab.tests
-                                  ? panelTheme.onPrimaryColor
-                                  : panelTheme.subtitleColor,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
+          icon: const Icon(Icons.file_download_outlined, size: 14),
+          label: const Text('Export', style: TextStyle(fontSize: 12)),
+          onPressed: () => _handleExportReport(context, panelTheme),
+        ),
+        const SizedBox(width: 6),
+        IconButton(
+          tooltip: 'Reset to default scenario',
+          visualDensity: VisualDensity.compact,
+          constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+          style: IconButton.styleFrom(
+            backgroundColor: panelTheme.surfaceColor,
+            side: BorderSide(color: panelTheme.borderColor),
+            padding: const EdgeInsets.all(6),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
             ),
-          ],
-          const Spacer(),
+          ),
+          icon: Icon(
+            Icons.restart_alt_rounded,
+            size: 16,
+            color: panelTheme.subtitleColor,
+          ),
+          onPressed: controller.resetToDefault,
+        ),
+        if (widget.onClose != null) ...[
+          const SizedBox(width: 6),
           IconButton(
-            tooltip: 'Reset to default scenario',
+            tooltip: 'Close panel',
             visualDensity: VisualDensity.compact,
             constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
             style: IconButton.styleFrom(
-              backgroundColor: panelTheme.chipColor.withValues(alpha: 0.5),
+              backgroundColor: panelTheme.surfaceColor,
+              side: BorderSide(color: panelTheme.borderColor),
               padding: const EdgeInsets.all(6),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
             ),
             icon: Icon(
-              Icons.restart_alt_rounded,
+              Icons.close_rounded,
               size: 16,
               color: panelTheme.subtitleColor,
             ),
-            onPressed: controller.resetToDefault,
+            onPressed: widget.onClose,
           ),
-          if (widget.onClose != null) ...[
-            const SizedBox(width: 4),
-            IconButton(
-              tooltip: 'Close panel',
-              visualDensity: VisualDensity.compact,
-              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              style: IconButton.styleFrom(
-                backgroundColor: panelTheme.chipColor.withValues(alpha: 0.5),
-                padding: const EdgeInsets.all(6),
-              ),
-              icon: Icon(
-                Icons.close_rounded,
-                size: 16,
-                color: panelTheme.subtitleColor,
-              ),
-              onPressed: widget.onClose,
-            ),
-          ],
         ],
+      ],
+    );
+  }
+
+  Widget _buildSegmentedTabBar(
+    ScenarioPanelThemeData panelTheme,
+    int scenariosCount,
+    int testsCount,
+  ) {
+    final reportCount = _reportStore.totalFailures > 0
+        ? _reportStore.totalFailures
+        : _reportStore.runs.length;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: panelTheme.chipColor,
+        borderRadius: BorderRadius.circular(10),
+      ),
+      padding: const EdgeInsets.all(3),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _buildSegmentTab(
+            key: const ValueKey('panel_tab_scenarios'),
+            label: 'Scenarios',
+            count: scenariosCount,
+            isSelected: _activeTab == _PanelTab.scenarios,
+            panelTheme: panelTheme,
+            onTap: () => setState(() => _activeTab = _PanelTab.scenarios),
+          ),
+          const SizedBox(width: 2),
+          _buildSegmentTab(
+            key: const ValueKey('panel_tab_tests'),
+            label: 'Tests',
+            count: testsCount,
+            isSelected: _activeTab == _PanelTab.tests,
+            panelTheme: panelTheme,
+            onTap: () => setState(() => _activeTab = _PanelTab.tests),
+          ),
+          const SizedBox(width: 2),
+          _buildSegmentTab(
+            key: const ValueKey('panel_tab_reports'),
+            label: 'Reports',
+            count: reportCount,
+            isSelected: _activeTab == _PanelTab.reports,
+            panelTheme: panelTheme,
+            isWarningBadge: _reportStore.totalFailures > 0,
+            onTap: () => setState(() => _activeTab = _PanelTab.reports),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSegmentTab({
+    required Key key,
+    required String label,
+    required int count,
+    required bool isSelected,
+    required ScenarioPanelThemeData panelTheme,
+    required VoidCallback onTap,
+    bool isWarningBadge = false,
+  }) {
+    return InkWell(
+      key: key,
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(7),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(7),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.05),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+                color: isSelected ? panelTheme.textColor : panelTheme.subtitleColor,
+              ),
+            ),
+            if (count > 0) ...[
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                decoration: BoxDecoration(
+                  color: isWarningBadge
+                      ? const Color(0xFFFEE2E2)
+                      : (isSelected
+                          ? panelTheme.chipColor
+                          : Colors.white.withValues(alpha: 0.6)),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$count',
+                  style: TextStyle(
+                    color: isWarningBadge
+                        ? const Color(0xFFDC2626)
+                        : (isSelected
+                            ? panelTheme.primaryColor
+                            : panelTheme.subtitleColor),
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
@@ -575,15 +739,15 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
         controller: _searchController,
         style: TextStyle(color: panelTheme.textColor, fontSize: 13),
         decoration: InputDecoration(
-          hintText: 'Search scenarios by name, ID, group, or tag...',
+          hintText: 'Search scenarios by name, ID, group, or tag',
           hintStyle: TextStyle(
-            color: panelTheme.subtitleColor.withValues(alpha: 0.6),
+            color: panelTheme.subtitleColor.withValues(alpha: 0.7),
             fontSize: 13,
           ),
           prefixIcon: Icon(
             Icons.search_rounded,
             size: 18,
-            color: panelTheme.primaryColor.withValues(alpha: 0.8),
+            color: panelTheme.subtitleColor,
           ),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
@@ -596,28 +760,40 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
                     _searchController.clear();
                   },
                 )
-              : null,
+              : Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: panelTheme.chipColor,
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: panelTheme.borderColor),
+                    ),
+                    child: Text(
+                      '/',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: panelTheme.subtitleColor,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ),
           isDense: true,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           filled: true,
           fillColor: panelTheme.surfaceColor,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 10,
-          ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: panelTheme.borderColor.withValues(alpha: 0.8),
-            ),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: panelTheme.borderColor),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide(
-              color: panelTheme.borderColor.withValues(alpha: 0.8),
-            ),
+            borderRadius: BorderRadius.circular(10),
+            borderSide: BorderSide(color: panelTheme.borderColor),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(10),
             borderSide: BorderSide(
               color: panelTheme.primaryColor,
               width: 1.5,
@@ -631,14 +807,16 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
   Widget _buildGroupFilters(
     List<String> groups,
     ScenarioPanelThemeData panelTheme,
+    List<Scenario> allScenarios,
   ) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         children: [
           _buildFilterChip(
             label: 'All',
+            count: allScenarios.length,
             isSelected: _selectedGroupFilter == null,
             onTap: () {
               setState(() {
@@ -648,9 +826,10 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
             panelTheme: panelTheme,
           ),
           for (final group in groups) ...[
-            const SizedBox(width: 6),
+            const SizedBox(width: 8),
             _buildFilterChip(
               label: group,
+              count: allScenarios.where((s) => s.group == group).length,
               isSelected: _selectedGroupFilter == group,
               onTap: () {
                 setState(() {
@@ -667,6 +846,7 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
 
   Widget _buildFilterChip({
     required String label,
+    required int count,
     required bool isSelected,
     required VoidCallback onTap,
     required ScenarioPanelThemeData panelTheme,
@@ -677,32 +857,44 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
       borderRadius: BorderRadius.circular(20),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected ? panelTheme.primaryColor : panelTheme.surfaceColor,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color:
-                isSelected ? panelTheme.primaryColor : panelTheme.borderColor,
+            color: isSelected ? panelTheme.primaryColor : panelTheme.borderColor,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: panelTheme.primaryColor.withValues(alpha: 0.3),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
         ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-            color:
-                isSelected ? panelTheme.onPrimaryColor : panelTheme.textColor,
-          ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                color: isSelected ? Colors.white : panelTheme.textColor,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Colors.white.withValues(alpha: 0.25)
+                    : panelTheme.chipColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: isSelected ? Colors.white : panelTheme.subtitleColor,
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -750,6 +942,60 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
     );
   }
 
+  Widget _buildScenariosGrid(
+    BuildContext context,
+    List<Scenario> scenarios,
+    ScenarioController controller,
+    ScenarioPanelThemeData panelTheme,
+  ) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isWide = constraints.maxWidth >= 720;
+
+        if (isWide) {
+          return GridView.builder(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+              mainAxisExtent: 200,
+            ),
+            itemCount: scenarios.length,
+            itemBuilder: (context, index) {
+              final scenario = scenarios[index];
+              final isSelected = controller.isSelected(scenario);
+              return _buildScenarioCard(
+                context,
+                scenario,
+                isSelected,
+                controller,
+                panelTheme,
+              );
+            },
+          );
+        }
+
+        return ListView.separated(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          itemCount: scenarios.length,
+          separatorBuilder: (_, __) => const SizedBox(height: 10),
+          itemBuilder: (context, index) {
+            final scenario = scenarios[index];
+            final isSelected = controller.isSelected(scenario);
+            return _buildScenarioCard(
+              context,
+              scenario,
+              isSelected,
+              controller,
+              panelTheme,
+            );
+          },
+        );
+      },
+    );
+  }
+
   Widget _buildScenarioCard(
     BuildContext context,
     Scenario scenario,
@@ -759,59 +1005,51 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
   ) {
     return InkWell(
       onTap: () => controller.select(scenario),
-      borderRadius: panelTheme.borderRadius,
+      borderRadius: BorderRadius.circular(12),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: isSelected
-              ? panelTheme.activeItemColor
-              : panelTheme.effectiveCardColor,
-          borderRadius: panelTheme.borderRadius,
+          color: panelTheme.surfaceColor,
+          borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color:
-                isSelected ? panelTheme.primaryColor : panelTheme.borderColor,
+            color: isSelected ? panelTheme.primaryColor : panelTheme.borderColor,
             width: isSelected ? 1.6 : 1.0,
           ),
-          boxShadow: isSelected
-              ? [
-                  BoxShadow(
-                    color: panelTheme.primaryColor.withValues(alpha: 0.12),
-                    blurRadius: 10,
-                    offset: const Offset(0, 2),
-                  ),
-                ]
-              : null,
+          boxShadow: [
+            BoxShadow(
+              color: isSelected
+                  ? panelTheme.primaryColor.withValues(alpha: 0.1)
+                  : Colors.black.withValues(alpha: 0.02),
+              blurRadius: isSelected ? 8 : 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 Expanded(
                   child: Text(
                     scenario.name,
                     style: TextStyle(
                       color: panelTheme.textColor,
-                      fontWeight:
-                          isSelected ? FontWeight.bold : FontWeight.w600,
+                      fontWeight: FontWeight.bold,
                       fontSize: 14,
-                      letterSpacing: -0.1,
+                      letterSpacing: -0.2,
                     ),
                   ),
                 ),
                 if (scenario.isDefault) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: panelTheme.chipColor,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: panelTheme.borderColor,
-                      ),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(color: panelTheme.borderColor),
                     ),
                     child: Text(
                       'DEFAULT',
@@ -819,43 +1057,62 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
                         color: panelTheme.subtitleColor,
-                        letterSpacing: 0.4,
+                        letterSpacing: 0.3,
                       ),
                     ),
                   ),
                 ],
                 if (isSelected) ...[
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 6),
                   Container(
-                    padding: const EdgeInsets.all(2),
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
                       color: panelTheme.primaryColor,
-                      shape: BoxShape.circle,
+                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: const Icon(
-                      Icons.check,
-                      color: Colors.white,
-                      size: 13,
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check, color: Colors.white, size: 11),
+                        SizedBox(width: 3),
+                        Text(
+                          'Active',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ],
             ),
-            const SizedBox(height: 7),
+            const SizedBox(height: 6),
+            if (scenario.description != null &&
+                scenario.description!.trim().isNotEmpty) ...[
+              Text(
+                scenario.description!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: panelTheme.subtitleColor,
+                  height: 1.35,
+                ),
+              ),
+              const SizedBox(height: 8),
+            ],
             Wrap(
               spacing: 6,
               runSpacing: 4,
-              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                   decoration: BoxDecoration(
                     color: panelTheme.chipColor,
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(
-                      color: panelTheme.borderColor.withValues(alpha: 0.5),
-                    ),
+                    borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     scenario.id,
@@ -868,87 +1125,100 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
                 ),
                 if (scenario.group != null && scenario.group!.trim().isNotEmpty)
                   Container(
-                    padding:
-                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: panelTheme.chipColor,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(
-                        color: panelTheme.borderColor.withValues(alpha: 0.5),
-                      ),
+                      borderRadius: BorderRadius.circular(4),
                     ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.folder_outlined,
-                          size: 11,
-                          color: panelTheme.subtitleColor,
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          scenario.group!,
-                          style: TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w500,
-                            color: panelTheme.subtitleColor,
-                          ),
-                        ),
-                      ],
+                    child: Text(
+                      scenario.group!,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: panelTheme.subtitleColor,
+                      ),
                     ),
                   ),
                 if (scenario.metadata.isNotEmpty)
                   InkWell(
-                    onTap: () => _showMetadataDialog(
-                      context,
-                      scenario,
-                      panelTheme,
-                    ),
-                    borderRadius: BorderRadius.circular(6),
+                    onTap: () => _showMetadataDialog(context, scenario, panelTheme),
+                    borderRadius: BorderRadius.circular(4),
                     child: Container(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 6, vertical: 2),
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
                         color: panelTheme.primaryColor.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.info_outline_rounded,
-                            size: 11,
-                            color: panelTheme.primaryColor,
-                          ),
-                          const SizedBox(width: 3),
-                          Text(
-                            'meta (${scenario.metadata.length})',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                              color: panelTheme.primaryColor,
-                            ),
-                          ),
-                        ],
+                      child: Text(
+                        'meta (${scenario.metadata.length})',
+                        style: TextStyle(
+                          fontSize: 11,
+                          color: panelTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
                     ),
                   ),
               ],
             ),
-            if (scenario.description != null &&
-                scenario.description!.trim().isNotEmpty) ...[
-              const SizedBox(height: 6),
-              Text(
-                scenario.description!,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 12,
-                  color: panelTheme.subtitleColor,
-                  height: 1.3,
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 6,
+              children: [
+                if (isSelected)
+                  OutlinedButton(
+                    onPressed: null,
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: panelTheme.borderColor),
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: Text(
+                      'Applied',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: panelTheme.subtitleColor,
+                      ),
+                    ),
+                  )
+                else
+                  FilledButton(
+                    onPressed: () => controller.select(scenario),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: panelTheme.primaryColor,
+                      foregroundColor: panelTheme.onPrimaryColor,
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text('Apply scenario', style: TextStyle(fontSize: 11)),
+                  ),
+                OutlinedButton(
+                  onPressed: () {
+                    controller.select(scenario);
+                    widget.onClose?.call();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: panelTheme.textColor,
+                    side: BorderSide(color: panelTheme.borderColor),
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text('Apply and preview', style: TextStyle(fontSize: 11)),
                 ),
-              ),
-            ],
+              ],
+            ),
           ],
         ),
       ),
