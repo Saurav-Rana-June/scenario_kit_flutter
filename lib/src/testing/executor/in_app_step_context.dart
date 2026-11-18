@@ -57,8 +57,11 @@ class InAppStepContext implements ScenarioStepContext {
       element.visitChildElements(visitor);
     }
 
-    if (rootContext.mounted) {
-      rootContext.visitChildElements(visitor);
+    final root = WidgetsBinding.instance.rootElement ??
+        (rootContext.mounted ? (rootContext as Element) : null);
+    if (root != null) {
+      if (finder.matchesElement(root)) return root;
+      root.visitChildElements(visitor);
     }
     return match;
   }
@@ -73,8 +76,11 @@ class InAppStepContext implements ScenarioStepContext {
       element.visitChildElements(visitor);
     }
 
-    if (rootContext.mounted) {
-      rootContext.visitChildElements(visitor);
+    final root = WidgetsBinding.instance.rootElement ??
+        (rootContext.mounted ? (rootContext as Element) : null);
+    if (root != null) {
+      if (finder.matchesElement(root)) matches.add(root);
+      root.visitChildElements(visitor);
     }
     return matches;
   }

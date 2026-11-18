@@ -1,3 +1,5 @@
+import 'dart:ui';
+
 import 'package:flutter/material.dart';
 
 import '../../core/scenario_controller.dart';
@@ -59,7 +61,7 @@ class _ScenarioFloatingTriggerState extends State<ScenarioFloatingTrigger> {
       builder: (sheetContext) {
         return Container(
           constraints: BoxConstraints(
-            maxHeight: MediaQuery.of(sheetContext).size.height * 0.75,
+            maxHeight: MediaQuery.of(sheetContext).size.height * 0.85,
           ),
           decoration: BoxDecoration(
             color: panelTheme.backgroundColor,
@@ -69,9 +71,9 @@ class _ScenarioFloatingTriggerState extends State<ScenarioFloatingTrigger> {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.25),
-                blurRadius: panelTheme.panelElevation,
-                offset: const Offset(0, -4),
+                color: Colors.black.withValues(alpha: 0.35),
+                blurRadius: panelTheme.panelElevation * 2,
+                offset: const Offset(0, -6),
               ),
             ],
           ),
@@ -99,61 +101,102 @@ class _ScenarioFloatingTriggerState extends State<ScenarioFloatingTrigger> {
       builder: (context, _) {
         final activeScenario = controller.selectedScenario;
         final label = activeScenario?.name ?? 'No Scenario';
+        final statusColor = activeScenario != null
+            ? panelTheme.successColor
+            : panelTheme.errorColor;
 
         Widget triggerWidget = Material(
           key: const Key('scenario_floating_trigger_button'),
           color: Colors.transparent,
           child: InkWell(
             onTap: () => _openPanel(context, controller),
-            borderRadius: BorderRadius.circular(20),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: panelTheme.surfaceColor,
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: panelTheme.borderColor, width: 1.2),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.2),
-                    blurRadius: 8,
-                    offset: const Offset(0, 3),
-                  ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: activeScenario != null
-                          ? const Color(0xFF10B981)
-                          : const Color(0xFFEF4444),
-                      shape: BoxShape.circle,
+            borderRadius: BorderRadius.circular(24),
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(24),
+              child: BackdropFilter(
+                filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: panelTheme.surfaceColor.withValues(alpha: 0.85),
+                    borderRadius: BorderRadius.circular(24),
+                    border: Border.all(
+                      color: panelTheme.borderColor.withValues(alpha: 0.9),
+                      width: 1.2,
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Icon(
-                    Icons.tune_rounded,
-                    size: 15,
-                    color: panelTheme.primaryColor,
-                  ),
-                  const SizedBox(width: 6),
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 160),
-                    child: Text(
-                      label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: panelTheme.textColor,
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        blurRadius: 14,
+                        offset: const Offset(0, 4),
                       ),
-                    ),
+                      BoxShadow(
+                        color: panelTheme.primaryColor.withValues(alpha: 0.08),
+                        blurRadius: 10,
+                        spreadRadius: 1,
+                      ),
+                    ],
                   ),
-                ],
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: statusColor,
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: statusColor.withValues(alpha: 0.6),
+                              blurRadius: 6,
+                              spreadRadius: 1,
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color:
+                              panelTheme.primaryColor.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Icon(
+                          Icons.tune_rounded,
+                          size: 13,
+                          color: panelTheme.primaryColor,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 160),
+                        child: Text(
+                          label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: -0.1,
+                            color: panelTheme.textColor,
+                          ),
+                        ),
+                      ),
+                      if (widget.isDraggable) ...[
+                        const SizedBox(width: 6),
+                        Icon(
+                          Icons.drag_indicator_rounded,
+                          size: 14,
+                          color:
+                              panelTheme.subtitleColor.withValues(alpha: 0.4),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
               ),
             ),
           ),

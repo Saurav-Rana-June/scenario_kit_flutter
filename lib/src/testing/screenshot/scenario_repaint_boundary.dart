@@ -5,13 +5,13 @@ import 'package:flutter/widgets.dart';
 class ScenarioRepaintBoundary extends StatelessWidget {
   /// Creates a [ScenarioRepaintBoundary].
   const ScenarioRepaintBoundary({
-    required this.boundaryKey,
+    this.boundaryKey,
     required this.child,
     super.key,
   });
 
-  /// The [GlobalKey] anchoring the boundary.
-  final GlobalKey boundaryKey;
+  /// The optional [GlobalKey] anchoring the boundary.
+  final GlobalKey? boundaryKey;
 
   /// The child subtree to be captured.
   final Widget child;

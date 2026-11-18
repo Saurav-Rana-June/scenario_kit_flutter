@@ -12,8 +12,8 @@ import '../../testing/runner/screen_execution_summary.dart';
 import '../theme/scenario_panel_theme.dart';
 import 'scenario_report_viewer.dart';
 
-/// Interactive developer dashboard for reviewing, filtering, executing, and
-/// diagnosing automated screen-level and functionality-level tests.
+/// Interactive developer dashboard for filtering, selecting, executing, and
+/// reviewing screen-level and functionality-level test suites in ScenarioKit.
 class ScenarioTestDashboard extends StatefulWidget {
   /// Creates a [ScenarioTestDashboard].
   const ScenarioTestDashboard({
@@ -24,16 +24,16 @@ class ScenarioTestDashboard extends StatefulWidget {
     this.onClose,
   });
 
-  /// The registry containing registered test suites and tests.
+  /// The registry providing registered test suites and tests.
   final ScenarioTestRegistry? registry;
 
-  /// The runner executing test suites.
+  /// The runner executing tests.
   final ScenarioTestRunner? runner;
 
-  /// Theme for the dashboard.
+  /// Custom theme for the dashboard.
   final ScenarioPanelThemeData? theme;
 
-  /// Callback when the dashboard close button is tapped.
+  /// Optional callback invoked when the user taps close.
   final VoidCallback? onClose;
 
   @override
@@ -43,13 +43,13 @@ class ScenarioTestDashboard extends StatefulWidget {
 class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
   late final ScenarioTestRegistry _registry;
   late final ScenarioTestRunner _runner;
-  final TextEditingController _searchController = TextEditingController();
+  late final TextEditingController _searchController;
 
+  String? _selectedScreen;
+  String? _selectedGroup;
   String _searchQuery = '';
-  String? _selectedScreen; // null means all screens
-  String? _selectedGroup; // null means all groups
   final Set<String> _selectedTestIds = {};
-
+  final Set<String> _expandedTestIds = {};
   final Map<String, TestExecutionResult> _latestResults = {};
   ScreenExecutionSummary? _lastSummary;
 
@@ -58,20 +58,27 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
     super.initState();
     _registry = widget.registry ?? ScenarioTestRegistry.instance;
     _runner = widget.runner ?? ScenarioTestRunner(registry: _registry);
+    _searchController = TextEditingController();
     _searchController.addListener(_onSearchChanged);
+    _registry.addListener(_onRegistryChanged);
+  }
+
+  void _onRegistryChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onSearchChanged() {
-    final q = _searchController.text.trim().toLowerCase();
-    if (q != _searchQuery) {
+    final query = _searchController.text.trim().toLowerCase();
+    if (query != _searchQuery) {
       setState(() {
-        _searchQuery = q;
+        _searchQuery = query;
       });
     }
   }
 
   @override
   void dispose() {
+    _registry.removeListener(_onRegistryChanged);
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     super.dispose();
@@ -128,6 +135,7 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
     if (toRun.isEmpty) return;
 
     final summary = await _runner.runSelectedTests(toRun, context: context);
+    if (!mounted) return;
     setState(() {
       _lastSummary = summary;
       for (final r in summary.results) {
@@ -154,6 +162,7 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
       );
     }
 
+    if (!mounted) return;
     setState(() {
       _lastSummary = summary;
       for (final r in summary.results) {
@@ -165,10 +174,13 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
   Future<void> _runSingleTest(BuildContext context, ScenarioTest test) async {
     final result =
         await _runner.runFunctionalityTest(test.id, context: context);
+    if (!mounted) return;
     setState(() {
       _latestResults[test.id] = result;
       _lastSummary = ScreenExecutionSummary.fromResults(
-        executionMode: ExecutionMode.functionality,
+        executionMode: _selectedScreen != null
+            ? ExecutionMode.screen
+            : ExecutionMode.functionality,
         results: [result],
         startTime: result.timestamp,
         endTime: result.timestamp.add(result.duration),
@@ -201,7 +213,10 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
               return _buildProgressBanner(progress, panelTheme);
             },
           ),
-          const Divider(height: 1),
+          Divider(
+            height: 1,
+            color: panelTheme.borderColor.withValues(alpha: 0.6),
+          ),
           Expanded(
             child: filteredTests.isEmpty
                 ? _buildEmptyState(panelTheme)
@@ -214,58 +229,118 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
 
   Widget _buildHeader(ScenarioPanelThemeData panelTheme) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
       decoration: BoxDecoration(
         color: panelTheme.surfaceColor,
-        border: Border(bottom: BorderSide(color: panelTheme.borderColor)),
+        border: Border(
+          bottom: BorderSide(
+            color: panelTheme.borderColor.withValues(alpha: 0.7),
+          ),
+        ),
       ),
       child: Row(
         children: [
-          Icon(Icons.fact_check, color: panelTheme.primaryColor, size: 20),
-          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.all(6),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  panelTheme.primaryColor,
+                  panelTheme.primaryColor.withValues(alpha: 0.7),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(8),
+              boxShadow: [
+                BoxShadow(
+                  color: panelTheme.primaryColor.withValues(alpha: 0.25),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.fact_check_rounded,
+              color: Colors.white,
+              size: 15,
+            ),
+          ),
+          const SizedBox(width: 10),
           Text(
             'Test Mode',
             style: TextStyle(
               color: panelTheme.textColor,
               fontSize: 16,
               fontWeight: FontWeight.bold,
+              letterSpacing: -0.3,
             ),
           ),
           const SizedBox(width: 8),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
             decoration: BoxDecoration(
               color: panelTheme.chipColor,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: panelTheme.borderColor.withValues(alpha: 0.8),
+              ),
             ),
             child: Text(
               '${_registry.totalTestCount}',
-              style: TextStyle(color: panelTheme.subtitleColor, fontSize: 11),
+              style: TextStyle(
+                color: panelTheme.subtitleColor,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
           const Spacer(),
-          if (_lastSummary != null)
-            TextButton.icon(
+          if (_lastSummary != null) ...[
+            FilledButton.tonalIcon(
               key: const ValueKey('view_report_button'),
-              icon: const Icon(Icons.assessment, size: 16),
+              icon: const Icon(Icons.bar_chart_rounded, size: 16),
               label: const Text('View Report'),
-              style: TextButton.styleFrom(
+              style: FilledButton.styleFrom(
+                backgroundColor:
+                    panelTheme.primaryColor.withValues(alpha: 0.15),
                 foregroundColor: panelTheme.primaryColor,
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 visualDensity: VisualDensity.compact,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(20),
+                  side: BorderSide(
+                    color: panelTheme.primaryColor.withValues(alpha: 0.3),
+                  ),
+                ),
               ),
               onPressed: () {
                 final report = ScenarioTestReport.fromSummaries(
                   title: 'In-App Test Report',
                   summaries: [_lastSummary!],
                 );
-                ScenarioReportViewerDialog.show(context,
-                    report: report, theme: panelTheme);
+                ScenarioReportViewerDialog.show(
+                  context,
+                  report: report,
+                  theme: panelTheme,
+                );
               },
             ),
+            const SizedBox(width: 8),
+          ],
           if (widget.onClose != null)
             IconButton(
-              icon:
-                  Icon(Icons.close, color: panelTheme.subtitleColor, size: 20),
+              icon: Icon(
+                Icons.close_rounded,
+                color: panelTheme.subtitleColor,
+                size: 18,
+              ),
+              style: IconButton.styleFrom(
+                backgroundColor: panelTheme.chipColor.withValues(alpha: 0.5),
+                padding: const EdgeInsets.all(6),
+                minimumSize: const Size(32, 32),
+              ),
               onPressed: widget.onClose,
             ),
         ],
@@ -279,48 +354,102 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
 
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
       child: Row(
         children: [
-          FilterChip(
-            label: const Text('All Screens'),
-            selected: _selectedScreen == null,
-            onSelected: (_) => setState(() {
+          _buildScreenChip(
+            label: 'All Screens',
+            count: _registry.totalTestCount,
+            isSelected: _selectedScreen == null,
+            onTap: () => setState(() {
               _selectedScreen = null;
               _selectedGroup = null;
             }),
-            backgroundColor: panelTheme.chipColor,
-            selectedColor: panelTheme.primaryColor,
-            labelStyle: TextStyle(
-              color: _selectedScreen == null
-                  ? panelTheme.onPrimaryColor
-                  : panelTheme.textColor,
-              fontSize: 12,
-            ),
+            panelTheme: panelTheme,
           ),
-          const SizedBox(width: 6),
-          ...screens.map((screen) {
-            final isSel = _selectedScreen == screen;
-            return Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: FilterChip(
-                label: Text(screen),
-                selected: isSel,
-                onSelected: (_) => setState(() {
-                  _selectedScreen = screen;
-                  _selectedGroup = null;
-                }),
-                backgroundColor: panelTheme.chipColor,
-                selectedColor: panelTheme.primaryColor,
-                labelStyle: TextStyle(
-                  color:
-                      isSel ? panelTheme.onPrimaryColor : panelTheme.textColor,
-                  fontSize: 12,
+          for (final screen in screens) ...[
+            const SizedBox(width: 6),
+            _buildScreenChip(
+              label: screen,
+              count: _registry.getTestsForScreen(screen).length,
+              isSelected: _selectedScreen == screen,
+              onTap: () => setState(() {
+                _selectedScreen = screen;
+                _selectedGroup = null;
+              }),
+              panelTheme: panelTheme,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _buildScreenChip({
+    required String label,
+    required int count,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required ScenarioPanelThemeData panelTheme,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+        decoration: BoxDecoration(
+          color: isSelected ? panelTheme.primaryColor : panelTheme.surfaceColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(
+            color:
+                isSelected ? panelTheme.primaryColor : panelTheme.borderColor,
+          ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: panelTheme.primaryColor.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                color: isSelected
+                    ? panelTheme.onPrimaryColor
+                    : panelTheme.textColor,
+                fontSize: 12,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+              ),
+            ),
+            const SizedBox(width: 6),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? Colors.white.withValues(alpha: 0.25)
+                    : panelTheme.chipColor,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                '$count',
+                style: TextStyle(
+                  color: isSelected
+                      ? panelTheme.onPrimaryColor
+                      : panelTheme.subtitleColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
-            );
-          }),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -329,76 +458,114 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
       List<String> groups, ScenarioPanelThemeData panelTheme) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
       child: Row(
         children: [
-          FilterChip(
-            label: const Text('All Groups'),
-            selected: _selectedGroup == null,
-            onSelected: (_) => setState(() => _selectedGroup = null),
-            backgroundColor: panelTheme.chipColor,
-            selectedColor: panelTheme.primaryColor.withValues(alpha: 0.7),
-            labelStyle: TextStyle(
-              color: _selectedGroup == null
-                  ? panelTheme.onPrimaryColor
-                  : panelTheme.subtitleColor,
-              fontSize: 11,
-            ),
+          _buildFilterPill(
+            label: 'All Groups',
+            isSelected: _selectedGroup == null,
+            onTap: () => setState(() => _selectedGroup = null),
+            panelTheme: panelTheme,
           ),
-          const SizedBox(width: 6),
-          ...groups.map((group) {
-            final isSel = _selectedGroup == group;
-            return Padding(
-              padding: const EdgeInsets.only(right: 6),
-              child: FilterChip(
-                label: Text(group),
-                selected: isSel,
-                onSelected: (_) => setState(() => _selectedGroup = group),
-                backgroundColor: panelTheme.chipColor,
-                selectedColor: panelTheme.primaryColor.withValues(alpha: 0.7),
-                labelStyle: TextStyle(
-                  color: isSel
-                      ? panelTheme.onPrimaryColor
-                      : panelTheme.subtitleColor,
-                  fontSize: 11,
-                ),
-              ),
-            );
-          }),
+          for (final group in groups) ...[
+            const SizedBox(width: 6),
+            _buildFilterPill(
+              label: group,
+              isSelected: _selectedGroup == group,
+              onTap: () => setState(() => _selectedGroup = group),
+              panelTheme: panelTheme,
+            ),
+          ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildFilterPill({
+    required String label,
+    required bool isSelected,
+    required VoidCallback onTap,
+    required ScenarioPanelThemeData panelTheme,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? panelTheme.primaryColor.withValues(alpha: 0.2)
+              : panelTheme.chipColor.withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected
+                ? panelTheme.primaryColor
+                : panelTheme.borderColor.withValues(alpha: 0.6),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            color:
+                isSelected ? panelTheme.primaryColor : panelTheme.subtitleColor,
+            fontSize: 11,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+          ),
+        ),
       ),
     );
   }
 
   Widget _buildSearchBar(ScenarioPanelThemeData panelTheme) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
       child: TextField(
         controller: _searchController,
         style: TextStyle(color: panelTheme.textColor, fontSize: 13),
         decoration: InputDecoration(
           hintText: 'Search test cases or steps...',
-          hintStyle: TextStyle(color: panelTheme.subtitleColor, fontSize: 13),
-          prefixIcon:
-              Icon(Icons.search, color: panelTheme.subtitleColor, size: 18),
+          hintStyle: TextStyle(
+            color: panelTheme.subtitleColor.withValues(alpha: 0.6),
+            fontSize: 13,
+          ),
+          prefixIcon: Icon(
+            Icons.search_rounded,
+            color: panelTheme.primaryColor.withValues(alpha: 0.8),
+            size: 18,
+          ),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
-                  icon: Icon(Icons.clear,
-                      color: panelTheme.subtitleColor, size: 16),
+                  icon: Icon(
+                    Icons.clear_rounded,
+                    color: panelTheme.subtitleColor,
+                    size: 16,
+                  ),
                   onPressed: () => _searchController.clear(),
                 )
               : null,
           filled: true,
           fillColor: panelTheme.surfaceColor,
           isDense: true,
-          contentPadding: const EdgeInsets.symmetric(vertical: 8),
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: panelTheme.borderColor),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: panelTheme.borderColor.withValues(alpha: 0.8),
+            ),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(8),
-            borderSide: BorderSide(color: panelTheme.borderColor),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: panelTheme.borderColor.withValues(alpha: 0.8),
+            ),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: panelTheme.primaryColor,
+              width: 1.5,
+            ),
           ),
         ),
       ),
@@ -416,7 +583,7 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -424,6 +591,9 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
               key: const ValueKey('select_all_checkbox'),
               value: allSelected,
               activeColor: panelTheme.primaryColor,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(4),
+              ),
               onChanged: (val) {
                 setState(() {
                   if (val == true) {
@@ -436,40 +606,66 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
             ),
             Text(
               'Select All (${_selectedTestIds.length}/${filteredTests.length})',
-              style: TextStyle(color: panelTheme.subtitleColor, fontSize: 12),
+              style: TextStyle(
+                color: panelTheme.subtitleColor,
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
             ),
-            const SizedBox(width: 16),
+            const SizedBox(width: 14),
             if (_runner.isRunning)
               ElevatedButton.icon(
                 key: const ValueKey('cancel_button'),
-                icon: const Icon(Icons.stop, size: 16),
+                icon: const Icon(Icons.stop_rounded, size: 16),
                 label: const Text('Cancel'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFEF4444),
+                  backgroundColor: panelTheme.errorColor,
                   foregroundColor: Colors.white,
+                  elevation: 2,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                   visualDensity: VisualDensity.compact,
                 ),
                 onPressed: () => _runner.cancel(),
               )
             else ...[
-              OutlinedButton(
+              OutlinedButton.icon(
                 key: const ValueKey('run_all_button'),
+                icon: const Icon(Icons.play_arrow_rounded, size: 16),
+                label: const Text('Run All'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: panelTheme.textColor,
-                  side: BorderSide(color: panelTheme.borderColor),
+                  side: BorderSide(
+                    color: panelTheme.borderColor,
+                    width: 1.2,
+                  ),
+                  backgroundColor: panelTheme.surfaceColor,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                   visualDensity: VisualDensity.compact,
                 ),
                 onPressed: () => _runAllTests(context),
-                child: const Text('Run All'),
               ),
               const SizedBox(width: 8),
-              ElevatedButton.icon(
+              FilledButton.icon(
                 key: const ValueKey('run_selected_button'),
-                icon: const Icon(Icons.play_arrow, size: 16),
+                icon: const Icon(Icons.play_arrow_rounded, size: 16),
                 label: Text('Run Selected (${_selectedTestIds.length})'),
-                style: ElevatedButton.styleFrom(
+                style: FilledButton.styleFrom(
                   backgroundColor: panelTheme.primaryColor,
                   foregroundColor: panelTheme.onPrimaryColor,
+                  elevation: 2,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                  ),
                   visualDensity: VisualDensity.compact,
                 ),
                 onPressed: _selectedTestIds.isEmpty
@@ -486,67 +682,124 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
   Widget _buildProgressBanner(
       TestExecutionProgress progress, ScenarioPanelThemeData panelTheme) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-      color: panelTheme.surfaceColor,
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: panelTheme.surfaceColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: panelTheme.primaryColor.withValues(alpha: 0.4),
+          width: 1.2,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: panelTheme.primaryColor.withValues(alpha: 0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
-              const SizedBox(
+              SizedBox(
                 width: 14,
                 height: 14,
-                child: CircularProgressIndicator(strokeWidth: 2),
+                child: CircularProgressIndicator(
+                  strokeWidth: 2.2,
+                  valueColor: AlwaysStoppedAnimation(panelTheme.primaryColor),
+                ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   progress.currentTest != null
                       ? 'Running: ${progress.currentTest!.name} (${progress.currentStepIndex + 1}/${progress.totalStepsInCurrentTest})'
-                      : 'Preparing tests...',
+                      : 'Preparing test execution...',
                   style: TextStyle(
                     color: panelTheme.textColor,
                     fontSize: 12,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.bold,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: panelTheme.primaryColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '${(progress.percentage * 100).toInt()}%',
+                  style: TextStyle(
+                    color: panelTheme.primaryColor,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: LinearProgressIndicator(
+              value: progress.percentage,
+              backgroundColor: panelTheme.chipColor,
+              valueColor: AlwaysStoppedAnimation(panelTheme.primaryColor),
+              minHeight: 5,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  _buildMetricBadge('Passed: ${progress.passedCount}',
+                      panelTheme.successColor, panelTheme),
+                  const SizedBox(width: 6),
+                  _buildMetricBadge('Failed: ${progress.failedCount}',
+                      panelTheme.errorColor, panelTheme),
+                  const SizedBox(width: 6),
+                  _buildMetricBadge('Skipped: ${progress.skippedCount}',
+                      panelTheme.warningColor, panelTheme),
+                ],
+              ),
               Text(
-                '${(progress.percentage * 100).toInt()}%',
+                '${(progress.elapsed.inMilliseconds / 1000).toStringAsFixed(1)}s',
                 style: TextStyle(
-                  color: panelTheme.primaryColor,
-                  fontSize: 12,
+                  color: panelTheme.subtitleColor,
+                  fontSize: 11,
+                  fontFamily: 'monospace',
                   fontWeight: FontWeight.bold,
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 6),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: LinearProgressIndicator(
-              value: progress.percentage,
-              backgroundColor: panelTheme.backgroundColor,
-              valueColor: AlwaysStoppedAnimation(panelTheme.primaryColor),
-              minHeight: 4,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Passed: ${progress.passedCount} \u2022 Failed: ${progress.failedCount} \u2022 Skipped: ${progress.skippedCount}',
-                style: TextStyle(color: panelTheme.subtitleColor, fontSize: 11),
-              ),
-              Text(
-                '${(progress.elapsed.inMilliseconds / 1000).toStringAsFixed(1)}s',
-                style: TextStyle(color: panelTheme.subtitleColor, fontSize: 11),
-              ),
-            ],
-          ),
         ],
+      ),
+    );
+  }
+
+  Widget _buildMetricBadge(
+      String text, Color color, ScenarioPanelThemeData panelTheme) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Text(
+        text,
+        style: TextStyle(
+          color: color,
+          fontSize: 10,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }
@@ -557,101 +810,347 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
     ScenarioPanelThemeData panelTheme,
   ) {
     return ListView.separated(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
       itemCount: tests.length,
-      separatorBuilder: (_, __) =>
-          Divider(height: 1, color: panelTheme.borderColor),
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
       itemBuilder: (ctx, index) {
         final test = tests[index];
         final isSelected = _selectedTestIds.contains(test.id);
+        final isExpanded = _expandedTestIds.contains(test.id);
         final latest = _latestResults[test.id];
 
-        return ListTile(
-          dense: true,
-          leading: Checkbox(
-            value: isSelected,
-            activeColor: panelTheme.primaryColor,
-            onChanged: (val) {
-              setState(() {
-                if (val == true) {
-                  _selectedTestIds.add(test.id);
-                } else {
-                  _selectedTestIds.remove(test.id);
-                }
-              });
-            },
-          ),
-          title: Row(
-            children: [
-              _buildStatusIcon(latest?.status ?? TestStatus.pending),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  test.name,
-                  style: TextStyle(
-                    color: panelTheme.textColor,
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          subtitle: Row(
-            children: [
-              if (test.group != null) ...[
-                Container(
-                  margin: const EdgeInsets.only(top: 2),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-                  decoration: BoxDecoration(
-                    color: panelTheme.chipColor,
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Text(
-                    test.group!,
-                    style: TextStyle(
-                        color: panelTheme.subtitleColor, fontSize: 10),
-                  ),
-                ),
-                const SizedBox(width: 6),
-              ],
-              Text(
-                '${test.steps.length} steps${latest != null ? " \u2022 ${latest.duration.inMilliseconds}ms" : ""}',
-                style: TextStyle(color: panelTheme.subtitleColor, fontSize: 11),
-              ),
-            ],
-          ),
-          trailing: IconButton(
-            key: ValueKey('run_single_${test.id}'),
-            icon: const Icon(Icons.play_arrow, size: 18),
-            color: panelTheme.primaryColor,
-            onPressed:
-                _runner.isRunning ? null : () => _runSingleTest(context, test),
-          ),
+        return _buildTestCard(
+          context,
+          test,
+          isSelected,
+          isExpanded,
+          latest,
+          panelTheme,
         );
       },
     );
   }
 
-  Widget _buildStatusIcon(TestStatus status) {
+  Widget _buildTestCard(
+    BuildContext context,
+    ScenarioTest test,
+    bool isSelected,
+    bool isExpanded,
+    TestExecutionResult? latest,
+    ScenarioPanelThemeData panelTheme,
+  ) {
+    final status = latest?.status ?? TestStatus.pending;
+    final statusColor = _resolveStatusColor(status, panelTheme);
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 180),
+      decoration: BoxDecoration(
+        color: panelTheme.effectiveCardColor,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: isSelected
+              ? panelTheme.primaryColor
+              : panelTheme.borderColor.withValues(alpha: 0.8),
+          width: isSelected ? 1.5 : 1.0,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          InkWell(
+            onTap: () {
+              setState(() {
+                if (isExpanded) {
+                  _expandedTestIds.remove(test.id);
+                } else {
+                  _expandedTestIds.add(test.id);
+                }
+              });
+            },
+            borderRadius: BorderRadius.circular(12),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: Row(
+                children: [
+                  Checkbox(
+                    value: isSelected,
+                    activeColor: panelTheme.primaryColor,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    onChanged: (val) {
+                      setState(() {
+                        if (val == true) {
+                          _selectedTestIds.add(test.id);
+                        } else {
+                          _selectedTestIds.remove(test.id);
+                        }
+                      });
+                    },
+                  ),
+                  _buildStatusBadge(status, statusColor),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          test.name,
+                          style: TextStyle(
+                            color: panelTheme.textColor,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Row(
+                          children: [
+                            if (test.group != null &&
+                                test.group!.trim().isNotEmpty) ...[
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 6, vertical: 1.5),
+                                decoration: BoxDecoration(
+                                  color: panelTheme.chipColor,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: panelTheme.borderColor
+                                        .withValues(alpha: 0.5),
+                                  ),
+                                ),
+                                child: Text(
+                                  test.group!,
+                                  style: TextStyle(
+                                    color: panelTheme.subtitleColor,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                            ],
+                            Text(
+                              '${test.steps.length} steps${latest != null ? " \u2022 ${latest.duration.inMilliseconds}ms" : ""}',
+                              style: TextStyle(
+                                color: panelTheme.subtitleColor,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    key: ValueKey('run_single_${test.id}'),
+                    icon: Icon(
+                      Icons.play_arrow_rounded,
+                      size: 20,
+                      color: panelTheme.primaryColor,
+                    ),
+                    style: IconButton.styleFrom(
+                      backgroundColor:
+                          panelTheme.primaryColor.withValues(alpha: 0.1),
+                      padding: const EdgeInsets.all(6),
+                      minimumSize: const Size(32, 32),
+                    ),
+                    onPressed: _runner.isRunning
+                        ? null
+                        : () => _runSingleTest(context, test),
+                  ),
+                  const SizedBox(width: 4),
+                  Icon(
+                    isExpanded
+                        ? Icons.keyboard_arrow_up_rounded
+                        : Icons.keyboard_arrow_down_rounded,
+                    color: panelTheme.subtitleColor,
+                    size: 20,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          if (isExpanded) ...[
+            Divider(
+              height: 1,
+              color: panelTheme.borderColor.withValues(alpha: 0.6),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (test.description != null &&
+                      test.description!.trim().isNotEmpty) ...[
+                    Text(
+                      test.description!,
+                      style: TextStyle(
+                        color: panelTheme.subtitleColor,
+                        fontSize: 12,
+                        height: 1.3,
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+                  Text(
+                    'Steps Timeline',
+                    style: TextStyle(
+                      color: panelTheme.textColor,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 0.2,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  ...test.steps.asMap().entries.map((entry) {
+                    final idx = entry.key;
+                    final step = entry.value;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 3),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 18,
+                            height: 18,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: panelTheme.chipColor,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Text(
+                              '${idx + 1}',
+                              style: TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                                color: panelTheme.subtitleColor,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              step.description,
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: panelTheme.textColor,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }),
+                  if (latest != null && latest.isFailed) ...[
+                    const SizedBox(height: 10),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: panelTheme.errorColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: panelTheme.errorColor.withValues(alpha: 0.3),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.error_outline_rounded,
+                            size: 16,
+                            color: panelTheme.errorColor,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              latest.errorMessage ?? 'Test execution failed',
+                              style: TextStyle(
+                                color: panelTheme.errorColor,
+                                fontSize: 11,
+                                fontFamily: 'monospace',
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Color _resolveStatusColor(
+      TestStatus status, ScenarioPanelThemeData panelTheme) {
     switch (status) {
       case TestStatus.passed:
-        return const Icon(Icons.check_circle,
-            color: Color(0xFF22C55E), size: 16);
+        return panelTheme.successColor;
       case TestStatus.failed:
-        return const Icon(Icons.cancel, color: Color(0xFFEF4444), size: 16);
+        return panelTheme.errorColor;
       case TestStatus.skipped:
-        return const Icon(Icons.do_not_disturb_on,
-            color: Color(0xFFF59E0B), size: 16);
+        return panelTheme.warningColor;
       case TestStatus.running:
-        return const SizedBox(
-          width: 14,
-          height: 14,
-          child: CircularProgressIndicator(strokeWidth: 2),
+        return panelTheme.primaryColor;
+      case TestStatus.pending:
+        return panelTheme.subtitleColor;
+    }
+  }
+
+  Widget _buildStatusBadge(TestStatus status, Color color) {
+    switch (status) {
+      case TestStatus.passed:
+        return Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.check_circle_rounded, color: color, size: 18),
+        );
+      case TestStatus.failed:
+        return Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.cancel_rounded, color: color, size: 18),
+        );
+      case TestStatus.skipped:
+        return Container(
+          padding: const EdgeInsets.all(2),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.15),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(Icons.do_not_disturb_on_rounded, color: color, size: 18),
+        );
+      case TestStatus.running:
+        return SizedBox(
+          width: 16,
+          height: 16,
+          child: CircularProgressIndicator(
+            strokeWidth: 2.2,
+            valueColor: AlwaysStoppedAnimation(color),
+          ),
         );
       case TestStatus.pending:
-        return const Icon(Icons.circle_outlined,
-            color: Color(0xFF6B7280), size: 14);
+        return Icon(
+          Icons.circle_outlined,
+          color: color.withValues(alpha: 0.5),
+          size: 16,
+        );
     }
   }
 
@@ -660,11 +1159,34 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(Icons.search_off, size: 40, color: panelTheme.subtitleColor),
-          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: panelTheme.chipColor.withValues(alpha: 0.5),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(
+              Icons.search_off_rounded,
+              size: 36,
+              color: panelTheme.subtitleColor.withValues(alpha: 0.7),
+            ),
+          ),
+          const SizedBox(height: 12),
           Text(
             'No tests match your filter criteria',
-            style: TextStyle(color: panelTheme.subtitleColor, fontSize: 13),
+            style: TextStyle(
+              color: panelTheme.textColor,
+              fontSize: 14,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Try selecting a different screen, group, or keyword.',
+            style: TextStyle(
+              color: panelTheme.subtitleColor,
+              fontSize: 12,
+            ),
           ),
         ],
       ),

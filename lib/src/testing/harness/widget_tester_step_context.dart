@@ -85,7 +85,13 @@ class WidgetTesterStepContext implements ScenarioStepContext {
       throw StateError(
           'Cannot enter text: Widget matching "${finder.description}" not found in widget tree.');
     }
-    await tester.enterText(target.first, text);
+    final editable = find.descendant(
+      of: target.first,
+      matching: find.byType(EditableText),
+    );
+    final effectiveTarget =
+        editable.evaluate().isNotEmpty ? editable.first : target.first;
+    await tester.enterText(effectiveTarget, text);
     await tester.pump();
     log('Entered text "$text" into widget matching "${finder.description}".');
   }
@@ -97,7 +103,13 @@ class WidgetTesterStepContext implements ScenarioStepContext {
       throw StateError(
           'Cannot clear text: Widget matching "${finder.description}" not found in widget tree.');
     }
-    await tester.enterText(target.first, '');
+    final editable = find.descendant(
+      of: target.first,
+      matching: find.byType(EditableText),
+    );
+    final effectiveTarget =
+        editable.evaluate().isNotEmpty ? editable.first : target.first;
+    await tester.enterText(effectiveTarget, '');
     await tester.pump();
     log('Cleared text in widget matching "${finder.description}".');
   }
@@ -217,9 +229,13 @@ class WidgetTesterStepContext implements ScenarioStepContext {
 
   @override
   Future<void> pumpAndSettle(
-      [Duration timeout = const Duration(seconds: 10)]) async {
+      [Duration timeout = const Duration(seconds: 3)]) async {
     try {
-      await tester.pumpAndSettle(timeout);
+      await tester.pumpAndSettle(
+        const Duration(milliseconds: 100),
+        EnginePhase.sendSemanticsUpdate,
+        timeout,
+      );
     } catch (_) {
       // Gracefully advance a frame if continuous animations prevent settling
       await tester.pump();

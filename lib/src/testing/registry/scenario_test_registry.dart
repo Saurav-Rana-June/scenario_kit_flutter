@@ -121,6 +121,9 @@ class ScenarioTestRegistry extends ChangeNotifier {
   /// Returns the suite registered for [screenName], or `null` if not found.
   ScenarioTestSuite? getSuite(String screenName) => _suites[screenName];
 
+  /// Alias for [getSuite] locating suite by [screenName].
+  ScenarioTestSuite? findSuite(String screenName) => getSuite(screenName);
+
   /// Returns the suite registered for [screenName], or throws [ScenarioNotFoundException].
   ScenarioTestSuite requireSuite(String screenName) {
     final suite = _suites[screenName];

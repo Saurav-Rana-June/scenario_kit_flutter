@@ -79,14 +79,12 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
 
   List<Scenario> _filterScenarios(List<Scenario> all) {
     return all.where((scenario) {
-      // Group filter check
       if (_selectedGroupFilter != null) {
         if (scenario.group?.trim() != _selectedGroupFilter) {
           return false;
         }
       }
 
-      // Search query check
       if (_searchQuery.isEmpty) return true;
 
       final nameMatch = scenario.name.toLowerCase().contains(_searchQuery);
@@ -114,52 +112,89 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
             borderRadius: panelTheme.borderRadius,
             side: BorderSide(color: panelTheme.borderColor),
           ),
-          title: Text(
-            '${scenario.name} Metadata',
-            style: TextStyle(
-              color: panelTheme.textColor,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+          title: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: panelTheme.primaryColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  Icons.data_object_rounded,
+                  size: 18,
+                  color: panelTheme.primaryColor,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '${scenario.name} Metadata',
+                  style: TextStyle(
+                    color: panelTheme.textColor,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
           content: SingleChildScrollView(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: scenario.metadata.entries.map((entry) {
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 4.0),
-                  child: Text.rich(
-                    TextSpan(
-                      text: '${entry.key}: ',
-                      style: TextStyle(
-                        color: panelTheme.primaryColor,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'monospace',
-                        fontSize: 13,
+                return Container(
+                  margin: const EdgeInsets.symmetric(vertical: 4.0),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: panelTheme.chipColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: panelTheme.borderColor.withValues(alpha: 0.5),
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${entry.key}: ',
+                        style: TextStyle(
+                          color: panelTheme.primaryColor,
+                          fontWeight: FontWeight.bold,
+                          fontFamily: 'monospace',
+                          fontSize: 12,
+                        ),
                       ),
-                      children: [
-                        TextSpan(
-                          text: '${entry.value}',
+                      Expanded(
+                        child: Text(
+                          '${entry.value}',
                           style: TextStyle(
                             color: panelTheme.textColor,
-                            fontWeight: FontWeight.normal,
+                            fontFamily: 'monospace',
+                            fontSize: 12,
                           ),
                         ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 );
               }).toList(),
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(
-                'Close',
-                style: TextStyle(color: panelTheme.primaryColor),
+            FilledButton.tonal(
+              style: FilledButton.styleFrom(
+                backgroundColor:
+                    panelTheme.primaryColor.withValues(alpha: 0.15),
+                foregroundColor: panelTheme.primaryColor,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Close'),
             ),
           ],
         );
@@ -186,9 +221,11 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (widget.showHeader)
+                if (widget.showHeader) ...[
+                  _buildDragHandle(panelTheme),
                   _buildHeader(
                       context, controller, panelTheme, scenarios.length),
+                ],
                 Flexible(
                   child: ScenarioTestDashboard(
                     registry: widget.testRegistry,
@@ -207,11 +244,17 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (widget.showHeader)
+              if (widget.showHeader) ...[
+                _buildDragHandle(panelTheme),
                 _buildHeader(context, controller, panelTheme, scenarios.length),
+              ],
               _buildSearchBar(panelTheme),
               if (groups.isNotEmpty) _buildGroupFilters(groups, panelTheme),
-              const Divider(height: 1, thickness: 1),
+              Divider(
+                height: 1,
+                thickness: 1,
+                color: panelTheme.borderColor.withValues(alpha: 0.6),
+              ),
               Flexible(
                 child: filtered.isEmpty
                     ? _buildEmptyResults(panelTheme)
@@ -243,59 +286,104 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
     );
   }
 
+  Widget _buildDragHandle(ScenarioPanelThemeData panelTheme) {
+    return Center(
+      child: Container(
+        margin: const EdgeInsets.only(top: 8, bottom: 2),
+        width: 36,
+        height: 4,
+        decoration: BoxDecoration(
+          color: panelTheme.subtitleColor.withValues(alpha: 0.3),
+          borderRadius: BorderRadius.circular(2),
+        ),
+      ),
+    );
+  }
+
   Widget _buildHeader(
     BuildContext context,
     ScenarioController controller,
     ScenarioPanelThemeData panelTheme,
     int totalCount,
   ) {
+    final testRegistry = widget.testRegistry ?? ScenarioTestRegistry.instance;
+
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 8, 10),
+      padding: const EdgeInsets.fromLTRB(16, 8, 8, 10),
       decoration: BoxDecoration(
         color: panelTheme.surfaceColor,
-        border: Border(bottom: BorderSide(color: panelTheme.borderColor)),
+        border: Border(
+          bottom: BorderSide(
+            color: panelTheme.borderColor.withValues(alpha: 0.7),
+          ),
+        ),
       ),
       child: Row(
         children: [
-          Icon(
-            Icons.tune_rounded,
-            size: 20,
-            color: panelTheme.primaryColor,
+          Container(
+            padding: const EdgeInsets.all(5),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  panelTheme.primaryColor,
+                  panelTheme.primaryColor.withValues(alpha: 0.7),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(7),
+              boxShadow: [
+                BoxShadow(
+                  color: panelTheme.primaryColor.withValues(alpha: 0.25),
+                  blurRadius: 4,
+                  offset: const Offset(0, 1),
+                ),
+              ],
+            ),
+            child: const Icon(
+              Icons.tune_rounded,
+              size: 14,
+              color: Colors.white,
+            ),
           ),
           const SizedBox(width: 8),
           Text(
             'ScenarioKit',
             style: TextStyle(
               color: panelTheme.textColor,
-              fontSize: 16,
+              fontSize: 15,
               fontWeight: FontWeight.bold,
-              letterSpacing: -0.2,
+              letterSpacing: -0.3,
             ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 6),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
               color: panelTheme.chipColor,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: panelTheme.borderColor),
+              border: Border.all(
+                color: panelTheme.borderColor.withValues(alpha: 0.8),
+              ),
             ),
             child: Text(
               '$totalCount',
               style: TextStyle(
                 color: panelTheme.subtitleColor,
-                fontSize: 11,
+                fontSize: 10,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
-          if ((widget.testRegistry ?? ScenarioTestRegistry.instance)
-              .isNotEmpty) ...[
+          if (testRegistry.isNotEmpty) ...[
             const SizedBox(width: 8),
             Container(
               decoration: BoxDecoration(
                 color: panelTheme.chipColor,
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: panelTheme.borderColor.withValues(alpha: 0.7),
+                ),
               ),
               padding: const EdgeInsets.all(2),
               child: Row(
@@ -306,7 +394,8 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
                     onTap: () =>
                         setState(() => _activeTab = _PanelTab.scenarios),
                     borderRadius: BorderRadius.circular(6),
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -314,24 +403,49 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
                             ? panelTheme.primaryColor
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(6),
+                        boxShadow: _activeTab == _PanelTab.scenarios
+                            ? [
+                                BoxShadow(
+                                  color: panelTheme.primaryColor
+                                      .withValues(alpha: 0.35),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ]
+                            : null,
                       ),
-                      child: Text(
-                        'Scenarios',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: _activeTab == _PanelTab.scenarios
-                              ? panelTheme.onPrimaryColor
-                              : panelTheme.subtitleColor,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.layers_rounded,
+                            size: 11,
+                            color: _activeTab == _PanelTab.scenarios
+                                ? panelTheme.onPrimaryColor
+                                : panelTheme.subtitleColor,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            'Scenarios',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: _activeTab == _PanelTab.scenarios
+                                  ? panelTheme.onPrimaryColor
+                                  : panelTheme.subtitleColor,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
+                  const SizedBox(width: 2),
                   InkWell(
                     key: const ValueKey('panel_tab_tests'),
                     onTap: () => setState(() => _activeTab = _PanelTab.tests),
                     borderRadius: BorderRadius.circular(6),
-                    child: Container(
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 150),
                       padding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
@@ -339,16 +453,39 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
                             ? panelTheme.primaryColor
                             : Colors.transparent,
                         borderRadius: BorderRadius.circular(6),
+                        boxShadow: _activeTab == _PanelTab.tests
+                            ? [
+                                BoxShadow(
+                                  color: panelTheme.primaryColor
+                                      .withValues(alpha: 0.35),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ]
+                            : null,
                       ),
-                      child: Text(
-                        'Tests (${(widget.testRegistry ?? ScenarioTestRegistry.instance).totalTestCount})',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          color: _activeTab == _PanelTab.tests
-                              ? panelTheme.onPrimaryColor
-                              : panelTheme.subtitleColor,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.checklist_rounded,
+                            size: 12,
+                            color: _activeTab == _PanelTab.tests
+                                ? panelTheme.onPrimaryColor
+                                : panelTheme.subtitleColor,
+                          ),
+                          const SizedBox(width: 3),
+                          Text(
+                            'Tests (${testRegistry.totalTestCount})',
+                            style: TextStyle(
+                              fontSize: 10,
+                              fontWeight: FontWeight.w600,
+                              color: _activeTab == _PanelTab.tests
+                                  ? panelTheme.onPrimaryColor
+                                  : panelTheme.subtitleColor,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ),
@@ -359,23 +496,37 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
           const Spacer(),
           IconButton(
             tooltip: 'Reset to default scenario',
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+            style: IconButton.styleFrom(
+              backgroundColor: panelTheme.chipColor.withValues(alpha: 0.5),
+              padding: const EdgeInsets.all(6),
+            ),
             icon: Icon(
               Icons.restart_alt_rounded,
-              size: 20,
+              size: 16,
               color: panelTheme.subtitleColor,
             ),
             onPressed: controller.resetToDefault,
           ),
-          if (widget.onClose != null)
+          if (widget.onClose != null) ...[
+            const SizedBox(width: 4),
             IconButton(
               tooltip: 'Close panel',
+              visualDensity: VisualDensity.compact,
+              constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+              style: IconButton.styleFrom(
+                backgroundColor: panelTheme.chipColor.withValues(alpha: 0.5),
+                padding: const EdgeInsets.all(6),
+              ),
               icon: Icon(
                 Icons.close_rounded,
-                size: 20,
+                size: 16,
                 color: panelTheme.subtitleColor,
               ),
               onPressed: widget.onClose,
             ),
+          ],
         ],
       ),
     );
@@ -390,13 +541,13 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
         decoration: InputDecoration(
           hintText: 'Search scenarios by name, ID, or tag...',
           hintStyle: TextStyle(
-            color: panelTheme.subtitleColor.withValues(alpha: 0.7),
+            color: panelTheme.subtitleColor.withValues(alpha: 0.6),
             fontSize: 13,
           ),
           prefixIcon: Icon(
             Icons.search_rounded,
             size: 18,
-            color: panelTheme.subtitleColor,
+            color: panelTheme.primaryColor.withValues(alpha: 0.8),
           ),
           suffixIcon: _searchQuery.isNotEmpty
               ? IconButton(
@@ -414,20 +565,27 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
           filled: true,
           fillColor: panelTheme.surfaceColor,
           contentPadding: const EdgeInsets.symmetric(
-            horizontal: 12,
+            horizontal: 14,
             vertical: 10,
           ),
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: panelTheme.borderColor),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: panelTheme.borderColor.withValues(alpha: 0.8),
+            ),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: panelTheme.borderColor),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: panelTheme.borderColor.withValues(alpha: 0.8),
+            ),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
-            borderSide: BorderSide(color: panelTheme.primaryColor),
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(
+              color: panelTheme.primaryColor,
+              width: 1.5,
+            ),
           ),
         ),
       ),
@@ -440,7 +598,7 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
   ) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+      padding: const EdgeInsets.fromLTRB(16, 2, 16, 8),
       child: Row(
         children: [
           _buildFilterChip(
@@ -480,22 +638,32 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
     return InkWell(
       key: ValueKey('filter_chip_$label'),
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      borderRadius: BorderRadius.circular(20),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 5),
         decoration: BoxDecoration(
           color: isSelected ? panelTheme.primaryColor : panelTheme.surfaceColor,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(20),
           border: Border.all(
             color:
                 isSelected ? panelTheme.primaryColor : panelTheme.borderColor,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: panelTheme.primaryColor.withValues(alpha: 0.3),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Text(
           label,
           style: TextStyle(
             fontSize: 12,
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
             color:
                 isSelected ? panelTheme.onPrimaryColor : panelTheme.textColor,
           ),
@@ -506,23 +674,30 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
 
   Widget _buildEmptyResults(ScenarioPanelThemeData panelTheme) {
     return Padding(
-      padding: const EdgeInsets.all(32.0),
+      padding: const EdgeInsets.all(40.0),
       child: Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(
-              Icons.search_off_rounded,
-              size: 36,
-              color: panelTheme.subtitleColor.withValues(alpha: 0.5),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: panelTheme.chipColor.withValues(alpha: 0.5),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.search_off_rounded,
+                size: 32,
+                color: panelTheme.subtitleColor.withValues(alpha: 0.7),
+              ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Text(
               'No matching scenarios',
               style: TextStyle(
                 color: panelTheme.textColor,
                 fontSize: 14,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.bold,
               ),
             ),
             const SizedBox(height: 4),
@@ -551,16 +726,26 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
       borderRadius: panelTheme.borderRadius,
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 180),
-        padding: const EdgeInsets.all(12),
+        padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color:
-              isSelected ? panelTheme.activeItemColor : panelTheme.surfaceColor,
+          color: isSelected
+              ? panelTheme.activeItemColor
+              : panelTheme.effectiveCardColor,
           borderRadius: panelTheme.borderRadius,
           border: Border.all(
             color:
                 isSelected ? panelTheme.primaryColor : panelTheme.borderColor,
-            width: isSelected ? 1.5 : 1.0,
+            width: isSelected ? 1.6 : 1.0,
           ),
+          boxShadow: isSelected
+              ? [
+                  BoxShadow(
+                    color: panelTheme.primaryColor.withValues(alpha: 0.12),
+                    blurRadius: 10,
+                    offset: const Offset(0, 2),
+                  ),
+                ]
+              : null,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -576,18 +761,21 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
                       fontWeight:
                           isSelected ? FontWeight.bold : FontWeight.w600,
                       fontSize: 14,
+                      letterSpacing: -0.1,
                     ),
                   ),
                 ),
                 if (scenario.isDefault) ...[
-                  const SizedBox(width: 6),
+                  const SizedBox(width: 8),
                   Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 5, vertical: 1.5),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: panelTheme.chipColor,
-                      borderRadius: BorderRadius.circular(4),
-                      border: Border.all(color: panelTheme.borderColor),
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: panelTheme.borderColor,
+                      ),
                     ),
                     child: Text(
                       'DEFAULT',
@@ -595,21 +783,29 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
                         fontSize: 9,
                         fontWeight: FontWeight.bold,
                         color: panelTheme.subtitleColor,
+                        letterSpacing: 0.4,
                       ),
                     ),
                   ),
                 ],
                 if (isSelected) ...[
                   const SizedBox(width: 8),
-                  Icon(
-                    Icons.check_circle_rounded,
-                    color: panelTheme.primaryColor,
-                    size: 18,
+                  Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: panelTheme.primaryColor,
+                      shape: BoxShape.circle,
+                    ),
+                    child: const Icon(
+                      Icons.check,
+                      color: Colors.white,
+                      size: 13,
+                    ),
                   ),
                 ],
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 7),
             Wrap(
               spacing: 6,
               runSpacing: 4,
@@ -617,10 +813,13 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
               children: [
                 Container(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
                     color: panelTheme.chipColor,
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(
+                      color: panelTheme.borderColor.withValues(alpha: 0.5),
+                    ),
                   ),
                   child: Text(
                     scenario.id,
@@ -634,38 +833,54 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
                 if (scenario.group != null && scenario.group!.trim().isNotEmpty)
                   Container(
                     padding:
-                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                     decoration: BoxDecoration(
                       color: panelTheme.chipColor,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Text(
-                      scenario.group!.trim(),
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: panelTheme.subtitleColor,
+                      borderRadius: BorderRadius.circular(6),
+                      border: Border.all(
+                        color: panelTheme.borderColor.withValues(alpha: 0.5),
                       ),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          Icons.folder_outlined,
+                          size: 11,
+                          color: panelTheme.subtitleColor,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          scenario.group!,
+                          style: TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w500,
+                            color: panelTheme.subtitleColor,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 if (scenario.metadata.isNotEmpty)
                   InkWell(
-                    onTap: () =>
-                        _showMetadataDialog(context, scenario, panelTheme),
+                    onTap: () => _showMetadataDialog(
+                      context,
+                      scenario,
+                      panelTheme,
+                    ),
+                    borderRadius: BorderRadius.circular(6),
                     child: Container(
                       padding: const EdgeInsets.symmetric(
                           horizontal: 6, vertical: 2),
                       decoration: BoxDecoration(
-                        color: panelTheme.chipColor,
-                        borderRadius: BorderRadius.circular(4),
-                        border: Border.all(
-                          color: panelTheme.primaryColor.withValues(alpha: 0.5),
-                        ),
+                        color: panelTheme.primaryColor.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           Icon(
-                            Icons.data_object_rounded,
+                            Icons.info_outline_rounded,
                             size: 11,
                             color: panelTheme.primaryColor,
                           ),
@@ -674,7 +889,7 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
                             'meta (${scenario.metadata.length})',
                             style: TextStyle(
                               fontSize: 10,
-                              fontWeight: FontWeight.w600,
+                              fontWeight: FontWeight.bold,
                               color: panelTheme.primaryColor,
                             ),
                           ),
@@ -688,10 +903,13 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
                 scenario.description!.trim().isNotEmpty) ...[
               const SizedBox(height: 6),
               Text(
-                scenario.description!.trim(),
+                scenario.description!,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
                 style: TextStyle(
-                  color: panelTheme.subtitleColor,
                   fontSize: 12,
+                  color: panelTheme.subtitleColor,
+                  height: 1.3,
                 ),
               ),
             ],

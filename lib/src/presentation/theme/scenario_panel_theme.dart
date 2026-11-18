@@ -16,46 +16,58 @@ class ScenarioPanelThemeData {
     required this.activeItemColor,
     this.borderRadius = const BorderRadius.all(Radius.circular(16)),
     this.panelElevation = 8.0,
+    this.cardColor,
+    this.successColor = const Color(0xFF10B981),
+    this.errorColor = const Color(0xFFEF4444),
+    this.warningColor = const Color(0xFFF59E0B),
   });
 
   /// Factory for sleek dark developer theme (default).
   factory ScenarioPanelThemeData.dark() {
     return const ScenarioPanelThemeData(
-      backgroundColor: Color(0xFF141419),
-      surfaceColor: Color(0xFF1E1E26),
+      backgroundColor: Color(0xFF0F1117),
+      surfaceColor: Color(0xFF181B24),
       primaryColor: Color(0xFF6366F1),
       onPrimaryColor: Colors.white,
-      textColor: Color(0xFFF3F4F6),
-      subtitleColor: Color(0xFF9CA3AF),
-      borderColor: Color(0xFF2E2E38),
-      chipColor: Color(0xFF282834),
-      activeItemColor: Color(0x266366F1),
+      textColor: Color(0xFFF8FAFC),
+      subtitleColor: Color(0xFF94A3B8),
+      borderColor: Color(0xFF282D3D),
+      chipColor: Color(0xFF222736),
+      activeItemColor: Color(0x2E6366F1),
+      cardColor: Color(0xFF1B1E2B),
+      successColor: Color(0xFF10B981),
+      errorColor: Color(0xFFEF4444),
+      warningColor: Color(0xFFF59E0B),
       borderRadius: BorderRadius.all(Radius.circular(16)),
-      panelElevation: 10.0,
+      panelElevation: 12.0,
     );
   }
 
   /// Factory for clean light developer theme.
   factory ScenarioPanelThemeData.light() {
     return const ScenarioPanelThemeData(
-      backgroundColor: Color(0xFFF9FAFB),
+      backgroundColor: Color(0xFFF8FAFC),
       surfaceColor: Colors.white,
       primaryColor: Color(0xFF4F46E5),
       onPrimaryColor: Colors.white,
-      textColor: Color(0xFF111827),
-      subtitleColor: Color(0xFF6B7280),
-      borderColor: Color(0xFFE5E7EB),
-      chipColor: Color(0xFFF3F4F6),
-      activeItemColor: Color(0x1A4F46E5),
+      textColor: Color(0xFF0F172A),
+      subtitleColor: Color(0xFF64748B),
+      borderColor: Color(0xFFE2E8F0),
+      chipColor: Color(0xFFF1F5F9),
+      activeItemColor: Color(0x1F4F46E5),
+      cardColor: Color(0xFFFFFFFF),
+      successColor: Color(0xFF10B981),
+      errorColor: Color(0xFFEF4444),
+      warningColor: Color(0xFFF59E0B),
       borderRadius: BorderRadius.all(Radius.circular(16)),
-      panelElevation: 6.0,
+      panelElevation: 8.0,
     );
   }
 
   /// Background color of the panel container.
   final Color backgroundColor;
 
-  /// Background color for cards and elevated surfaces.
+  /// Background color for elevated surfaces and header.
   final Color surfaceColor;
 
   /// Accent / primary brand color.
@@ -85,6 +97,21 @@ class ScenarioPanelThemeData {
   /// Shadow elevation for floating panels.
   final double panelElevation;
 
+  /// Optional background color for individual cards (defaults to [surfaceColor] if null).
+  final Color? cardColor;
+
+  /// Resolved card surface color.
+  Color get effectiveCardColor => cardColor ?? surfaceColor;
+
+  /// Color representing passed tests and success states.
+  final Color successColor;
+
+  /// Color representing failed tests and error states.
+  final Color errorColor;
+
+  /// Color representing skipped tests and warnings.
+  final Color warningColor;
+
   /// Creates a copy of this theme with given overrides.
   ScenarioPanelThemeData copyWith({
     Color? backgroundColor,
@@ -98,6 +125,10 @@ class ScenarioPanelThemeData {
     Color? activeItemColor,
     BorderRadius? borderRadius,
     double? panelElevation,
+    Color? cardColor,
+    Color? successColor,
+    Color? errorColor,
+    Color? warningColor,
   }) {
     return ScenarioPanelThemeData(
       backgroundColor: backgroundColor ?? this.backgroundColor,
@@ -111,6 +142,10 @@ class ScenarioPanelThemeData {
       activeItemColor: activeItemColor ?? this.activeItemColor,
       borderRadius: borderRadius ?? this.borderRadius,
       panelElevation: panelElevation ?? this.panelElevation,
+      cardColor: cardColor ?? this.cardColor,
+      successColor: successColor ?? this.successColor,
+      errorColor: errorColor ?? this.errorColor,
+      warningColor: warningColor ?? this.warningColor,
     );
   }
 
@@ -128,7 +163,11 @@ class ScenarioPanelThemeData {
         other.chipColor == chipColor &&
         other.activeItemColor == activeItemColor &&
         other.borderRadius == borderRadius &&
-        other.panelElevation == panelElevation;
+        other.panelElevation == panelElevation &&
+        other.cardColor == cardColor &&
+        other.successColor == successColor &&
+        other.errorColor == errorColor &&
+        other.warningColor == warningColor;
   }
 
   @override
@@ -144,5 +183,9 @@ class ScenarioPanelThemeData {
         activeItemColor,
         borderRadius,
         panelElevation,
+        cardColor,
+        successColor,
+        errorColor,
+        warningColor,
       );
 }
