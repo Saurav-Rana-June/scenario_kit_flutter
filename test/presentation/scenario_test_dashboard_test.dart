@@ -201,5 +201,72 @@ void main() {
 
       expect(find.text('Default Screen'), findsOneWidget);
     });
+
+    testWidgets('auto-selects active screen when currentScreenName is set',
+        (tester) async {
+      registry.registerTest(
+        ScenarioTest(id: 'dash_t', name: 'Dashboard Test', screen: 'Dashboard Screen'),
+      );
+      registry.registerTest(
+        ScenarioTest(id: 'login_t', name: 'Login Test', screen: 'Login Screen'),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ScenarioTestDashboard(
+              registry: registry,
+              currentScreenName: 'Dashboard Screen',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Dashboard Test'), findsOneWidget);
+      expect(find.text('Login Test'), findsNothing);
+      expect(find.text('(Active)'), findsOneWidget);
+    });
+
+    testWidgets('shows mismatch banner and invokes onNavigateToScreen',
+        (tester) async {
+      registry.registerTest(
+        ScenarioTest(id: 'dash_t', name: 'Dashboard Test', screen: 'Dashboard Screen'),
+      );
+      registry.registerTest(
+        ScenarioTest(id: 'login_t', name: 'Login Test', screen: 'Login Screen'),
+      );
+
+      String? navigatedTo;
+      var closed = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ScenarioTestDashboard(
+              registry: registry,
+              currentScreenName: 'Dashboard Screen',
+              onNavigateToScreen: (name) => navigatedTo = name,
+              onClose: () => closed = true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Login Screen'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('You are currently viewing "Dashboard Screen"'),
+        findsOneWidget,
+      );
+
+      await tester.tap(find.text('Go to Screen'));
+      await tester.pumpAndSettle();
+
+      expect(closed, isTrue);
+      expect(navigatedTo, 'Login Screen');
+    });
   });
 }

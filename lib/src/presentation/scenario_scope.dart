@@ -11,10 +11,18 @@ class ScenarioScope extends InheritedWidget {
     super.key,
     required this.controller,
     required super.child,
+    this.screenName,
+    this.onNavigateToScreen,
   });
 
   /// The provided [ScenarioController].
   final ScenarioController controller;
+
+  /// Human-readable name of the screen wrapped by this [ScenarioKit] instance.
+  final String? screenName;
+
+  /// Invoked when Test Mode requests navigation to another registered screen.
+  final void Function(String screenName)? onNavigateToScreen;
 
   /// Returns the closest [ScenarioController] ancestor in the widget tree,
   /// or throws a [FlutterError] if not found.
@@ -47,8 +55,26 @@ class ScenarioScope extends InheritedWidget {
     return maybeOf(context)?.selectedScenario;
   }
 
+  /// Returns the active screen name from the nearest [ScenarioScope], if set.
+  static String? maybeActiveScreenNameOf(BuildContext context) {
+    return context
+        .getInheritedWidgetOfExactType<ScenarioScope>()
+        ?.screenName;
+  }
+
+  /// Returns the navigation hook from the nearest [ScenarioScope], if set.
+  static void Function(String screenName)? maybeNavigateToScreenOf(
+    BuildContext context,
+  ) {
+    return context
+        .getInheritedWidgetOfExactType<ScenarioScope>()
+        ?.onNavigateToScreen;
+  }
+
   @override
   bool updateShouldNotify(covariant ScenarioScope oldWidget) {
-    return oldWidget.controller != controller;
+    return oldWidget.controller != controller ||
+        oldWidget.screenName != screenName ||
+        oldWidget.onNavigateToScreen != onNavigateToScreen;
   }
 }

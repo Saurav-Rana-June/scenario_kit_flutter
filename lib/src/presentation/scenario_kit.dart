@@ -47,6 +47,8 @@ class ScenarioKit extends StatefulWidget {
     this.testRegistry,
     this.persistence,
     this.hideOverlayWhileTestsRun = true,
+    this.screenName,
+    this.onNavigateToScreen,
   }) : assert(
           child != null ||
               scenarios != null ||
@@ -96,6 +98,14 @@ class ScenarioKit extends StatefulWidget {
 
   /// Hides the floating trigger while functional tests are executing.
   final bool hideOverlayWhileTestsRun;
+
+  /// Name of the screen wrapped by this [ScenarioKit] (e.g. `Dashboard Screen`).
+  ///
+  /// Used by Test Mode to pre-select matching tests and warn on screen mismatch.
+  final String? screenName;
+
+  /// Optional callback when the user chooses **Go to Screen** for another suite.
+  final void Function(String screenName)? onNavigateToScreen;
 
   @override
   State<ScenarioKit> createState() => _ScenarioKitState();
@@ -238,6 +248,8 @@ class _ScenarioKitState extends State<ScenarioKit> {
         boundaryKey: _screenshotBoundaryKey,
         child: ScenarioScope(
           controller: _controller,
+          screenName: widget.screenName,
+          onNavigateToScreen: widget.onNavigateToScreen,
           child: content,
         ),
       );
@@ -270,6 +282,8 @@ class _ScenarioKitState extends State<ScenarioKit> {
                         testRegistry: widget.testRegistry,
                         theme: widget.theme,
                         initialAlignment: widget.floatingTriggerAlignment,
+                        screenName: widget.screenName,
+                        onNavigateToScreen: widget.onNavigateToScreen,
                       ),
                     ),
                   );
@@ -280,6 +294,8 @@ class _ScenarioKitState extends State<ScenarioKit> {
 
     return ScenarioScope(
       controller: _controller,
+      screenName: widget.screenName,
+      onNavigateToScreen: widget.onNavigateToScreen,
       child: ScenarioKitBindings(
         screenshotBoundaryKey: _screenshotBoundaryKey,
         appContentKey: _appContentKey,

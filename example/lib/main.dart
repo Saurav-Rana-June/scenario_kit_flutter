@@ -197,6 +197,7 @@ class ScenarioKitExampleApp extends StatelessWidget {
       ),
       themeMode: ThemeMode.system,
       home: ScenarioKit(
+        screenName: 'Product Catalog',
         scenarios: [
           // 1. Success State (Default)
           Scenario.success(

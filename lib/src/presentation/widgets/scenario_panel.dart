@@ -19,6 +19,8 @@ class ScenarioPanel extends StatefulWidget {
     this.onClose,
     this.showHeader = true,
     this.testExecutionContext,
+    this.screenName,
+    this.onNavigateToScreen,
   });
 
   /// Explicit controller to bind to. If omitted, resolves from [ScenarioScope.of(context)].
@@ -40,6 +42,12 @@ class ScenarioPanel extends StatefulWidget {
   /// (not the modal sheet). Pass from [ScenarioFloatingTrigger] when embedded
   /// in a bottom sheet.
   final BuildContext? testExecutionContext;
+
+  /// Active screen name for Test Mode (see [ScenarioKit.screenName]).
+  final String? screenName;
+
+  /// Invoked when the user taps **Go to Screen** in Test Mode.
+  final void Function(String screenName)? onNavigateToScreen;
 
   @override
   State<ScenarioPanel> createState() => _ScenarioPanelState();
@@ -237,12 +245,16 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
                 _buildHeader(context, controller, panelTheme, totalCount),
               ],
               Expanded(
-                child: ScenarioTestDashboard(
-                  registry: widget.testRegistry,
-                  theme: panelTheme,
-                  onClose: widget.onClose,
-                  executionContext: widget.testExecutionContext,
-                ),
+              child: ScenarioTestDashboard(
+                registry: widget.testRegistry,
+                theme: panelTheme,
+                onClose: widget.onClose,
+                executionContext: widget.testExecutionContext,
+                currentScreenName: widget.screenName ??
+                    ScenarioScope.maybeActiveScreenNameOf(context),
+                onNavigateToScreen: widget.onNavigateToScreen ??
+                    ScenarioScope.maybeNavigateToScreenOf(context),
+              ),
               ),
             ],
           ),

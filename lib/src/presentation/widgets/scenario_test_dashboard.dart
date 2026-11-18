@@ -27,6 +27,8 @@ class ScenarioTestDashboard extends StatefulWidget {
     this.theme,
     this.onClose,
     this.executionContext,
+    this.currentScreenName,
+    this.onNavigateToScreen,
   });
 
   /// The registry providing registered test suites and tests.
@@ -43,6 +45,12 @@ class ScenarioTestDashboard extends StatefulWidget {
 
   /// Host context under [ScenarioKit] for in-app test execution (see [ScenarioPanel]).
   final BuildContext? executionContext;
+
+  /// Screen currently mounted in the host app (from [ScenarioKit.screenName]).
+  final String? currentScreenName;
+
+  /// Invoked when the user chooses to navigate to the selected test screen.
+  final void Function(String screenName)? onNavigateToScreen;
 
   @override
   State<ScenarioTestDashboard> createState() => _ScenarioTestDashboardState();
@@ -70,6 +78,23 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
     _searchController = TextEditingController();
     _searchController.addListener(_onSearchChanged);
     _registry.addListener(_onRegistryChanged);
+    _applyActiveScreenFilter();
+  }
+
+  void _applyActiveScreenFilter() {
+    final active = widget.currentScreenName?.trim();
+    if (active == null || active.isEmpty) return;
+    if (_registry.getTestsForScreen(active).isNotEmpty) {
+      _selectedScreen = active;
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant ScenarioTestDashboard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.currentScreenName != widget.currentScreenName) {
+      _applyActiveScreenFilter();
+    }
   }
 
   void _onRegistryChanged() {
@@ -260,6 +285,7 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
           _buildScreenFilterChips(screens, panelTheme),
           if (groups.isNotEmpty) _buildGroupFilterChips(groups, panelTheme),
           if (tags.isNotEmpty) _buildTagFilterChips(tags, panelTheme),
+          _buildScreenMismatchBanner(panelTheme),
           _buildSearchBar(panelTheme),
           _buildActionControls(context, filteredTests, panelTheme),
           ValueListenableBuilder<TestExecutionProgress>(
@@ -427,6 +453,7 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
             label: 'All Screens',
             count: _registry.totalTestCount,
             isSelected: _selectedScreen == null,
+            isActiveScreen: false,
             onTap: () => setState(() {
               _selectedScreen = null;
               _selectedGroup = null;
@@ -439,6 +466,7 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
               label: screen,
               count: _registry.getTestsForScreen(screen).length,
               isSelected: _selectedScreen == screen,
+              isActiveScreen: widget.currentScreenName == screen,
               onTap: () => setState(() {
                 _selectedScreen = screen;
                 _selectedGroup = null;
@@ -451,10 +479,63 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
     );
   }
 
+  Widget _buildScreenMismatchBanner(ScenarioPanelThemeData panelTheme) {
+    final active = widget.currentScreenName;
+    final selected = _selectedScreen;
+    if (selected == null || active == null || selected == active) {
+      return const SizedBox.shrink();
+    }
+
+    const warningColor = Colors.amber;
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: warningColor.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: warningColor.withValues(alpha: 0.4)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: warningColor, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'You are currently viewing "$active". Running tests for '
+              '"$selected" may fail because its UI is not mounted.',
+              style: TextStyle(
+                fontSize: 12,
+                color: warningColor.withValues(alpha: 0.95),
+                height: 1.35,
+              ),
+            ),
+          ),
+          if (widget.onNavigateToScreen != null) ...[
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: () {
+                widget.onClose?.call();
+                widget.onNavigateToScreen!(selected);
+              },
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+              child: const Text('Go to Screen', style: TextStyle(fontSize: 12)),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildScreenChip({
     required String label,
     required int count,
     required bool isSelected,
+    required bool isActiveScreen,
     required VoidCallback onTap,
     required ScenarioPanelThemeData panelTheme,
   }) {
@@ -484,6 +565,16 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
+            if (isActiveScreen) ...[
+              Icon(
+                Icons.circle,
+                size: 8,
+                color: isSelected
+                    ? panelTheme.onPrimaryColor
+                    : panelTheme.successColor,
+              ),
+              const SizedBox(width: 5),
+            ],
             Text(
               label,
               style: TextStyle(
@@ -494,6 +585,19 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
                 fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
               ),
             ),
+            if (isActiveScreen) ...[
+              const SizedBox(width: 4),
+              Text(
+                '(Active)',
+                style: TextStyle(
+                  color: isSelected
+                      ? panelTheme.onPrimaryColor.withValues(alpha: 0.9)
+                      : panelTheme.successColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
             const SizedBox(width: 6),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),

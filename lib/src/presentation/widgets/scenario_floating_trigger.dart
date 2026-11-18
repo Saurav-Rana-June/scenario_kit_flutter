@@ -19,6 +19,8 @@ class ScenarioFloatingTrigger extends StatefulWidget {
     this.theme,
     this.initialAlignment = Alignment.bottomRight,
     this.isDraggable = true,
+    this.screenName,
+    this.onNavigateToScreen,
   });
 
   /// Explicit controller to bind to. If omitted, resolves from [ScenarioScope.of(context)].
@@ -35,6 +37,12 @@ class ScenarioFloatingTrigger extends StatefulWidget {
 
   /// Whether the user can drag the trigger around the screen. Defaults to `true`.
   final bool isDraggable;
+
+  /// Active screen label for Test Mode filtering (from [ScenarioKit]).
+  final String? screenName;
+
+  /// Navigation hook when Test Mode requests another screen.
+  final void Function(String screenName)? onNavigateToScreen;
 
   @override
   State<ScenarioFloatingTrigger> createState() =>
@@ -82,6 +90,8 @@ class _ScenarioFloatingTriggerState extends State<ScenarioFloatingTrigger> {
               testRegistry: widget.testRegistry,
               theme: panelTheme,
               testExecutionContext: context,
+              screenName: widget.screenName,
+              onNavigateToScreen: widget.onNavigateToScreen,
               onClose: () => Navigator.of(sheetContext).pop(),
             ),
           ),

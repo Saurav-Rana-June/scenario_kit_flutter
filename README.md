@@ -394,6 +394,8 @@ When running your app in debug mode with `ScenarioKit`:
 1. Tap the floating trigger badge to open the developer bottom sheet.
 2. Switch tabs from **Scenarios** to **Test Mode**.
 3. Select an individual test, multiple tests, or all tests for a particular screen.
+   - Set `ScenarioKit.screenName` to match your suite's `screenName` / `ScenarioTestSuite.screenName` so Test Mode auto-filters to the mounted screen and warns when you pick another screen's tests.
+   - Optionally wire `onNavigateToScreen` so **Go to Screen** in the warning banner navigates your app.
 4. Tap **Run Selected** or **Run All** to watch real-time step execution with live progress indicators.
 5. Tap **View Report** to launch the comprehensive in-app report viewer featuring:
    - Success rate, pass/fail counters, and execution duration.

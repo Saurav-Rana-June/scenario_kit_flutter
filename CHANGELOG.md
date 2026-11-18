@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Active screen awareness**: `ScenarioKit.screenName` and `onNavigateToScreen`; Test Mode auto-filters to the mounted screen, marks the active chip, and shows a mismatch warning with optional **Go to Screen** navigation.
+- `ScenarioScope.maybeActiveScreenNameOf` / `maybeNavigateToScreenOf` for host apps.
+
 ### Fixed
 - Test Mode **Run All** from the bottom sheet now runs against the live app UI (via `appContentKey` / `executionContext`) instead of the modal route, and the sheet stays open while tests run.
 - In-app taps no longer inject pointer id `0` (fixes Chrome `PointerHoverEvent` gesture assertions and bottom sheet dismissals); uses `InAppPointerEvents` with hit-test and non-mouse pointer ids.
