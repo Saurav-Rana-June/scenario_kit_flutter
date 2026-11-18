@@ -6,14 +6,17 @@
 library;
 
 export 'src/core/scenario.dart';
+export 'src/core/scenario_content_mode.dart';
 export 'src/core/scenario_controller.dart';
 export 'src/core/scenario_exceptions.dart';
+export 'src/core/scenario_persistence.dart';
 export 'src/core/scenario_kit_info.dart';
 export 'src/core/scenario_registry.dart';
 export 'src/integrations/scenario_state_adapter.dart';
 export 'src/integrations/scenario_state_builder.dart';
 export 'src/models/mock_data.dart';
 export 'src/presentation/scenario_kit.dart';
+export 'src/presentation/scenario_kit_bindings.dart';
 export 'src/presentation/scenario_scope.dart';
 export 'src/presentation/scenario_viewer.dart';
 export 'src/presentation/theme/scenario_panel_theme.dart';
@@ -33,10 +36,6 @@ export 'src/testing/executor/in_app_step_context.dart';
 export 'src/testing/executor/scenario_test_executor.dart';
 export 'src/testing/executor/test_execution_progress.dart';
 export 'src/testing/executor/test_execution_result.dart';
-export 'src/testing/harness/scenario_test_harness.dart';
-export 'src/testing/harness/scenario_test_matchers.dart';
-export 'src/testing/harness/step_finder_extensions.dart';
-export 'src/testing/harness/widget_tester_step_context.dart';
 export 'src/testing/registry/scenario_test_registry.dart';
 export 'src/testing/reporting/html_report_exporter.dart';
 export 'src/testing/reporting/json_report_exporter.dart';

@@ -165,6 +165,23 @@ abstract class ScenarioTestStep {
     );
   }
 
+  /// Factory constructor creating a [SelectScenarioStep].
+  static ScenarioTestStep selectScenario(
+    String scenarioId, {
+    String? id,
+    String? description,
+    bool captureScreenshot = false,
+    Duration? timeout,
+  }) {
+    return SelectScenarioStep(
+      scenarioId: scenarioId,
+      id: id,
+      description: description,
+      captureScreenshot: captureScreenshot,
+      timeout: timeout,
+    );
+  }
+
   /// Factory constructor creating a [CustomStep].
   static ScenarioTestStep custom({
     required String id,

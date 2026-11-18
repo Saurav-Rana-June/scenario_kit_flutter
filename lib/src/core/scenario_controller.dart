@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import 'scenario.dart';
 import 'scenario_exceptions.dart';
+import 'scenario_persistence.dart';
 import 'scenario_registry.dart';
 
 /// Controller responsible for managing the active [Scenario] selection.
@@ -17,6 +18,7 @@ class ScenarioController extends ChangeNotifier {
   ScenarioController({
     ScenarioRegistry? registry,
     String? initialScenarioId,
+    this.persistence,
   })  : _registry = registry ?? ScenarioRegistry(),
         _ownsRegistry = registry == null {
     _registry.addListener(_handleRegistryChanged);
@@ -33,13 +35,18 @@ class ScenarioController extends ChangeNotifier {
   factory ScenarioController.fromScenarios(
     Iterable<Scenario> scenarios, {
     String? initialScenarioId,
+    ScenarioSelectionPersistence? persistence,
   }) {
     final registry = ScenarioRegistry(scenarios);
     return ScenarioController(
       registry: registry,
       initialScenarioId: initialScenarioId,
+      persistence: persistence,
     );
   }
+
+  /// Optional hook to restore / persist the active scenario across sessions.
+  final ScenarioSelectionPersistence? persistence;
 
   final ScenarioRegistry _registry;
   final bool _ownsRegistry;
@@ -100,6 +107,9 @@ class ScenarioController extends ChangeNotifier {
   void _updateSelection(Scenario? newSelection) {
     if (_isDisposed || _selectedScenario == newSelection) return;
     _selectedScenario = newSelection;
+    if (newSelection != null && persistence != null) {
+      persistence!.saveLastScenarioId(newSelection.id);
+    }
     notifyListeners();
   }
 

@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import '../../core/scenario_controller.dart';
+import '../../presentation/scenario_scope.dart';
 import '../assertions/assertion_result.dart';
 import '../definitions/step_finder.dart';
 import '../steps/scenario_step_context.dart';
@@ -38,6 +40,23 @@ class WidgetTesterStepContext implements ScenarioStepContext {
   /// All assertions recorded during execution.
   List<AssertionResult> get assertions =>
       List.unmodifiable(_recordedAssertions);
+
+  @override
+  List<String> get recordedLogs => logs;
+
+  @override
+  List<AssertionResult> get recordedAssertions => assertions;
+
+  @override
+  ScenarioController? resolveScenarioController() {
+    try {
+      final scopeFinder = find.byType(ScenarioScope, skipOffstage: false);
+      if (scopeFinder.evaluate().isEmpty) return null;
+      return ScenarioScope.maybeOf(tester.element(scopeFinder.first));
+    } catch (_) {
+      return null;
+    }
+  }
 
   Finder _resolve(StepFinder finder) => finder.toWidgetTesterFinder();
 

@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../core/scenario_controller.dart';
 import '../assertions/assertion_result.dart';
 import '../definitions/step_finder.dart';
 
@@ -72,4 +73,13 @@ abstract class ScenarioStepContext {
 
   /// Records an evaluated assertion result.
   void recordAssertion(AssertionResult assertion);
+
+  /// Execution log lines collected for this test run.
+  List<String> get recordedLogs => const [];
+
+  /// Assertion outcomes recorded during this test run.
+  List<AssertionResult> get recordedAssertions => const [];
+
+  /// Resolves [ScenarioController] from the widget tree, if present.
+  ScenarioController? resolveScenarioController() => null;
 }

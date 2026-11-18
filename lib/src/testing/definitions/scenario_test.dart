@@ -31,6 +31,7 @@ class ScenarioTest {
     this.teardown,
     this.screenshotPolicy = const ScreenshotPolicy.onFailureOnly(),
     this.isEnabled = true,
+    this.requiredScenarioId,
     Map<String, dynamic>? metadata,
   })  : id = _sanitizeId(id, name),
         tags = List<String>.unmodifiable(tags ?? const <String>[]),
@@ -82,6 +83,9 @@ class ScenarioTest {
   /// Whether this test is active. Disabled tests are marked skipped.
   final bool isEnabled;
 
+  /// When set, [ScenarioTestRunner] selects this scenario ID before executing steps.
+  final String? requiredScenarioId;
+
   /// Arbitrary custom metadata associated with this test.
   final Map<String, dynamic> metadata;
 
@@ -118,6 +122,7 @@ class ScenarioTest {
     List<ScenarioTestStep>? steps,
     ScreenshotPolicy? screenshotPolicy,
     bool? isEnabled,
+    String? requiredScenarioId,
     Map<String, dynamic>? metadata,
   }) {
     return ScenarioTest(
@@ -133,6 +138,7 @@ class ScenarioTest {
       steps: steps ?? this.steps,
       screenshotPolicy: screenshotPolicy ?? this.screenshotPolicy,
       isEnabled: isEnabled ?? this.isEnabled,
+      requiredScenarioId: requiredScenarioId ?? this.requiredScenarioId,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -150,6 +156,7 @@ class ScenarioTest {
         other.timeout == timeout &&
         other.screenshotPolicy == screenshotPolicy &&
         other.isEnabled == isEnabled &&
+        other.requiredScenarioId == requiredScenarioId &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -169,6 +176,7 @@ class ScenarioTest {
       timeout,
       screenshotPolicy,
       isEnabled,
+      requiredScenarioId,
       metaHash,
     );
   }

@@ -64,7 +64,7 @@ void main() {
       expect(registry.totalTestCount, 1);
     });
 
-    test('throws DuplicateScenarioException on duplicate suite registration',
+    test('throws DuplicateTestException on duplicate suite registration',
         () {
       final suite1 =
           ScenarioTestSuite(screenName: 'LoginScreen', tests: const []);
@@ -74,7 +74,7 @@ void main() {
       registry.registerSuite(suite1);
       expect(
         () => registry.registerSuite(suite2),
-        throwsA(isA<DuplicateScenarioException>()),
+        throwsA(isA<DuplicateTestException>()),
       );
     });
 
@@ -120,7 +120,7 @@ void main() {
       registry.registerTest(test1);
       expect(
         () => registry.registerTest(test2),
-        throwsA(isA<DuplicateScenarioException>()),
+        throwsA(isA<DuplicateTestException>()),
       );
     });
 

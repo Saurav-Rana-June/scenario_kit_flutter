@@ -65,16 +65,20 @@ class ScenarioTestHarness {
     FutureOr<void> Function()? pumpApp,
     ScreenshotCaptureCallback? onCaptureScreenshot,
     bool stopOnFirstFailure = false,
+    bool resetBetweenTests = false,
     Duration stepDelay = Duration.zero,
   }) async {
     final results = <TestExecutionResult>[];
     final startTime = DateTime.now();
 
     for (final test in suite.tests) {
+      if (resetBetweenTests && pumpApp != null) {
+        await pumpApp();
+      }
       final result = await runTest(
         tester,
         test,
-        pumpApp: pumpApp,
+        pumpApp: resetBetweenTests ? null : pumpApp,
         onCaptureScreenshot: onCaptureScreenshot,
         stepDelay: stepDelay,
       );

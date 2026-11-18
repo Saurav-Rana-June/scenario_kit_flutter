@@ -19,6 +19,9 @@ enum StepFinderType {
 
   /// Custom element predicate.
   custom,
+
+  /// Locates widget by semantics label.
+  bySemanticsLabel,
 }
 
 /// Declarative widget locator abstraction compatible with both in-app runtime
@@ -34,6 +37,7 @@ class StepFinder {
     this.tooltip,
     this.icon,
     this.predicate,
+    this.semanticsLabel,
     this.findRichText = true,
   });
 
@@ -107,6 +111,18 @@ class StepFinder {
     );
   }
 
+  /// Locates a widget with accessibility label [semanticsLabel].
+  factory StepFinder.bySemanticsLabel(
+    String semanticsLabel, {
+    String? description,
+  }) {
+    return StepFinder._(
+      type: StepFinderType.bySemanticsLabel,
+      semanticsLabel: semanticsLabel,
+      description: description ?? 'SemanticsLabel("$semanticsLabel")',
+    );
+  }
+
   /// The finding strategy.
   final StepFinderType type;
 
@@ -133,6 +149,9 @@ class StepFinder {
 
   /// Custom element predicate, if [type] is [StepFinderType.custom].
   final bool Function(Element element)? predicate;
+
+  /// Semantics label when [type] is [StepFinderType.bySemanticsLabel].
+  final String? semanticsLabel;
 
   /// Evaluates whether a given Flutter [Element] matches this finder's criteria.
   bool matchesElement(Element element) {
@@ -174,6 +193,16 @@ class StepFinder {
 
       case StepFinderType.custom:
         return predicate != null && predicate!(element);
+
+      case StepFinderType.bySemanticsLabel:
+        final widget = element.widget;
+        if (widget is Semantics) {
+          return widget.properties.label == semanticsLabel;
+        }
+        if (widget is Text) {
+          return widget.semanticsLabel == semanticsLabel;
+        }
+        return false;
     }
   }
 

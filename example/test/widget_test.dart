@@ -123,11 +123,31 @@ void main() {
           tester,
           suite,
           pumpApp: () => tester.pumpWidget(const ScenarioKitExampleApp()),
+          resetBetweenTests: true,
         );
 
         expect(summary, isExecutionSuccess);
         expect(summary, hasPassCount(3));
         expect(summary, hasFailCount(0));
+      },
+    );
+
+    testWidgets(
+      'executes network scenario tests with requiredScenarioId',
+      (tester) async {
+        final registry = ScenarioTestRegistry();
+        registerExampleFunctionalTests(registry);
+
+        final networkSuite = registry.getSuite('Network & Errors')!;
+        final summary = await ScenarioTestHarness.runSuite(
+          tester,
+          networkSuite,
+          pumpApp: () => tester.pumpWidget(const ScenarioKitExampleApp()),
+          resetBetweenTests: true,
+        );
+
+        expect(summary, isExecutionSuccess);
+        expect(summary, hasPassCount(2));
       },
     );
   });

@@ -2,6 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../../core/scenario_controller.dart';
+import '../../presentation/scenario_scope.dart';
+import '../executor/in_app_step_context.dart';
 import '../definitions/scenario_test_step.dart';
 import '../definitions/step_finder.dart';
 import 'scenario_step_context.dart';
@@ -268,6 +271,43 @@ class WaitForWidgetStep extends ScenarioTestStep {
     context.log(
         'Waiting for ${finder.description} up to ${waitTimeout.inSeconds}s');
     await context.waitFor(finder, timeout: waitTimeout);
+  }
+}
+
+/// Switches the active UI scenario via [ScenarioController.selectById].
+class SelectScenarioStep extends ScenarioTestStep {
+  /// Creates a [SelectScenarioStep].
+  SelectScenarioStep({
+    required this.scenarioId,
+    String? id,
+    String? description,
+    super.captureScreenshot,
+    super.timeout,
+  }) : super(
+          id: id ?? 'select_scenario_$scenarioId',
+          description: description ?? 'Select scenario "$scenarioId"',
+        );
+
+  /// Target scenario identifier in the ambient [ScenarioRegistry].
+  final String scenarioId;
+
+  @override
+  Future<void> execute(ScenarioStepContext context) async {
+    final controller = context.resolveScenarioController();
+    if (controller == null) {
+      throw StateError(
+        'Cannot select scenario "$scenarioId": no ScenarioController in widget tree.',
+      );
+    }
+    context.log('Selecting scenario "$scenarioId"');
+    if (context is InAppStepContext) {
+      controller.selectById(scenarioId);
+      await context.pumpAndSettle();
+      return;
+    }
+    await Future<void>.microtask(() => controller.selectById(scenarioId));
+    await context.pump();
+    await context.pump(const Duration(milliseconds: 300));
   }
 }
 

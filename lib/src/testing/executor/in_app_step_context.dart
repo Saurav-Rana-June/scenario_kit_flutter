@@ -2,7 +2,9 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import '../../core/scenario_controller.dart';
 
+import '../../presentation/scenario_scope.dart';
 import '../assertions/assertion_result.dart';
 import '../definitions/step_finder.dart';
 import '../steps/scenario_step_context.dart';
@@ -31,9 +33,19 @@ class InAppStepContext implements ScenarioStepContext {
   /// Collected diagnostic logs for this execution run.
   List<String> get logs => List.unmodifiable(_logs);
 
+  @override
+  List<String> get recordedLogs => logs;
+
   /// All assertions recorded during execution.
   List<AssertionResult> get assertions =>
       List.unmodifiable(_recordedAssertions);
+
+  @override
+  List<AssertionResult> get recordedAssertions => assertions;
+
+  @override
+  ScenarioController? resolveScenarioController() =>
+      ScenarioScope.maybeOf(rootContext);
 
   @override
   void log(String message) {
@@ -312,6 +324,7 @@ class InAppStepContext implements ScenarioStepContext {
         scrollable.position.minScrollExtent,
         scrollable.position.maxScrollExtent,
       ));
+      await pumpAndSettle();
     } else {
       await drag(finder, offset: offset, duration: duration);
     }
@@ -356,13 +369,29 @@ class InAppStepContext implements ScenarioStepContext {
   }
 
   @override
+  bool get _isAutomatedTestBinding {
+    final name = WidgetsBinding.instance.runtimeType.toString();
+    return name.contains('AutomatedTest');
+  }
+
   Future<void> pumpAndSettle(
       [Duration timeout = const Duration(seconds: 10)]) async {
-    await Future<void>.value();
+    if (_isAutomatedTestBinding) {
+      await Future<void>.value();
+      return;
+    }
+    final settleBudget = timeout > const Duration(milliseconds: 320)
+        ? const Duration(milliseconds: 320)
+        : timeout;
+    await Future<void>.delayed(settleBudget);
   }
 
   @override
   Future<void> pump([Duration? duration]) async {
+    if (_isAutomatedTestBinding) {
+      await Future<void>.value();
+      return;
+    }
     if (duration != null && duration > Duration.zero) {
       await Future<void>.delayed(duration);
     } else {

@@ -36,3 +36,26 @@ class InvalidScenarioException extends ScenarioException {
   /// Creates an [InvalidScenarioException] with the validation [message].
   const InvalidScenarioException(super.message);
 }
+
+/// Thrown when multiple scenarios are marked [Scenario.isDefault].
+class MultipleDefaultScenarioException extends ScenarioException {
+  /// Creates a [MultipleDefaultScenarioException] listing conflicting [ids].
+  MultipleDefaultScenarioException(this.ids)
+      : super(
+          'Multiple scenarios are marked as default: ${ids.join(", ")}. '
+          'Only one scenario may set isDefault: true per registry.',
+        );
+
+  /// Conflicting default scenario IDs.
+  final List<String> ids;
+}
+
+/// Thrown when attempting to register a test with an ID that is already registered.
+class DuplicateTestException extends ScenarioException {
+  /// Creates a [DuplicateTestException] with the conflicting [id].
+  DuplicateTestException(this.id)
+      : super('A test with ID "$id" is already registered.');
+
+  /// The conflicting test identifier.
+  final String id;
+}

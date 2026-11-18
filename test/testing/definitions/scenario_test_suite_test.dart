@@ -35,7 +35,7 @@ void main() {
       expect(suite.hasTest('t99'), isFalse);
     });
 
-    test('throws DuplicateScenarioException when duplicate test IDs are added',
+    test('throws DuplicateTestException when duplicate test IDs are added',
         () {
       final t1 = ScenarioTest(id: 'duplicate_id', name: 'Test 1');
       final t2 = ScenarioTest(id: 'duplicate_id', name: 'Test 2');
@@ -45,7 +45,7 @@ void main() {
           screenName: 'LoginScreen',
           tests: [t1, t2],
         ),
-        throwsA(isA<DuplicateScenarioException>()),
+        throwsA(isA<DuplicateTestException>()),
       );
     });
 

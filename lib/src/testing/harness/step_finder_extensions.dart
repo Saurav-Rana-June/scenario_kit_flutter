@@ -28,6 +28,9 @@ extension StepFinderWidgetTesterExtension on StepFinder {
           (element) => matchesElement(element),
           description: description,
         );
+
+      case StepFinderType.bySemanticsLabel:
+        return find.bySemanticsLabel(semanticsLabel!);
     }
   }
 }

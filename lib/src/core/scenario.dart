@@ -23,8 +23,10 @@ class Scenario {
     this.description,
     this.group,
     this.isDefault = false,
+    Iterable<String>? tags,
     Map<String, dynamic>? metadata,
   })  : id = _sanitizeId(id, name),
+        tags = List<String>.unmodifiable(tags ?? const <String>[]),
         metadata = Map<String, dynamic>.unmodifiable(metadata ?? const {}) {
     if (name.trim().isEmpty) {
       throw const InvalidScenarioException('Scenario name cannot be empty.');
@@ -137,6 +139,27 @@ class Scenario {
     );
   }
 
+  /// Convenience factory for pagination / load-more in progress.
+  factory Scenario.paginationLoading({
+    required ScenarioBuilder builder,
+    String? id,
+    String name = 'Pagination Loading',
+    String? description = 'Additional page is being fetched',
+    String? group,
+    bool isDefault = false,
+    Map<String, dynamic>? metadata,
+  }) {
+    return Scenario(
+      id: id,
+      name: name,
+      builder: builder,
+      description: description,
+      group: group,
+      isDefault: isDefault,
+      metadata: metadata,
+    );
+  }
+
   /// Unique identifier for this scenario within a registry.
   final String id;
 
@@ -154,6 +177,9 @@ class Scenario {
 
   /// Whether this scenario is the default initial scenario for its registry.
   final bool isDefault;
+
+  /// Optional labels for search and organization (e.g. "smoke", "network").
+  final List<String> tags;
 
   /// Arbitrary metadata associated with this scenario (e.g. mock responses, tags).
   final Map<String, dynamic> metadata;
@@ -186,6 +212,7 @@ class Scenario {
     String? group,
     ScenarioBuilder? builder,
     bool? isDefault,
+    Iterable<String>? tags,
     Map<String, dynamic>? metadata,
   }) {
     return Scenario(
@@ -195,6 +222,7 @@ class Scenario {
       group: group ?? this.group,
       builder: builder ?? this.builder,
       isDefault: isDefault ?? this.isDefault,
+      tags: tags ?? this.tags,
       metadata: metadata ?? this.metadata,
     );
   }
@@ -208,6 +236,7 @@ class Scenario {
         other.description == description &&
         other.group == group &&
         other.isDefault == isDefault &&
+        listEquals(other.tags, tags) &&
         mapEquals(other.metadata, metadata);
   }
 
@@ -223,6 +252,7 @@ class Scenario {
       description,
       group,
       isDefault,
+      Object.hashAll(tags),
       metadataHash,
     );
   }

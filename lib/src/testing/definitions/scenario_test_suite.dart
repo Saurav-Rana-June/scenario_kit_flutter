@@ -29,7 +29,7 @@ class ScenarioTestSuite {
 
     for (final test in tests) {
       if (!seenIds.add(test.id)) {
-        throw DuplicateScenarioException(test.id);
+        throw DuplicateTestException(test.id);
       }
       // Associate with screen if not already set
       if (test.screen == null) {

@@ -67,14 +67,28 @@ class ScenarioTestRegistry extends ChangeNotifier {
 
   /// Registers a [ScenarioTestSuite] for its [ScenarioTestSuite.screenName].
   ///
-  /// Throws [DuplicateScenarioException] if a suite for the same screen
-  /// is already registered.
-  void registerSuite(ScenarioTestSuite suite) {
-    if (_suites.containsKey(suite.screenName)) {
-      throw DuplicateScenarioException(suite.screenName);
+  /// Throws [DuplicateTestException] if a suite for the same screen is already
+  /// registered unless [replace] is `true`.
+  void registerSuite(ScenarioTestSuite suite, {bool replace = false}) {
+    if (_suites.containsKey(suite.screenName) && !replace) {
+      throw DuplicateTestException(suite.screenName);
     }
     _suites[suite.screenName] = suite;
     notifyListeners();
+  }
+
+  /// Replaces or registers a suite for [suite.screenName].
+  void replaceSuite(ScenarioTestSuite suite) =>
+      registerSuite(suite, replace: true);
+
+  /// Removes the suite for [screenName]. Returns `true` if removed.
+  bool unregisterSuite(String screenName) {
+    final removed = _suites.remove(screenName);
+    if (removed != null) {
+      notifyListeners();
+      return true;
+    }
+    return false;
   }
 
   /// Registers an individual [ScenarioTest].
@@ -84,7 +98,7 @@ class ScenarioTestRegistry extends ChangeNotifier {
   /// Throws [DuplicateScenarioException] if a test with the same ID already exists.
   void registerTest(ScenarioTest test) {
     if (hasTest(test.id)) {
-      throw DuplicateScenarioException(test.id);
+      throw DuplicateTestException(test.id);
     }
 
     final screen = test.screen;
@@ -167,6 +181,27 @@ class ScenarioTestRegistry extends ChangeNotifier {
     final target = group?.trim();
     final matches = allTests.where((t) => t.group?.trim() == target);
     return UnmodifiableListView<ScenarioTest>(matches.toList());
+  }
+
+  /// Returns tests that include [tag] in [ScenarioTest.tags].
+  List<ScenarioTest> getTestsByTag(String tag) {
+    final normalized = tag.trim();
+    if (normalized.isEmpty) return const [];
+    final matches =
+        allTests.where((t) => t.tags.map((e) => e.trim()).contains(normalized));
+    return UnmodifiableListView<ScenarioTest>(matches.toList());
+  }
+
+  /// Sorted unique tags across all tests.
+  List<String> get allTags {
+    final set = <String>{};
+    for (final test in allTests) {
+      for (final tag in test.tags) {
+        if (tag.trim().isNotEmpty) set.add(tag.trim());
+      }
+    }
+    final list = set.toList()..sort();
+    return UnmodifiableListView<String>(list);
   }
 
   /// Clears all suites and tests from this registry.

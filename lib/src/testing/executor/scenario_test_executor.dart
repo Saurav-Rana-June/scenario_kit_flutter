@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../../presentation/scenario_scope.dart';
 import '../definitions/scenario_test.dart';
 import '../definitions/scenario_test_step.dart';
 import '../steps/scenario_step_context.dart';
@@ -64,7 +65,9 @@ class ScenarioTestExecutor extends ChangeNotifier {
     required BuildContext context,
     bool stopOnFirstFailure = false,
     Duration stepDelay = Duration.zero,
+    ScreenshotCaptureCallback? screenshotCapture,
   }) async {
+    final capture = screenshotCapture ?? onCaptureScreenshot;
     if (_isRunning) {
       throw StateError(
           'ScenarioTestExecutor is already running another execution run.');
@@ -124,6 +127,7 @@ class ScenarioTestExecutor extends ChangeNotifier {
           currentTest,
           context: context,
           stepDelay: stepDelay,
+          screenshotCapture: capture,
         );
 
         results.add(result);
@@ -184,11 +188,13 @@ class ScenarioTestExecutor extends ChangeNotifier {
     ScenarioTest test, {
     required BuildContext context,
     Duration stepDelay = Duration.zero,
+    ScreenshotCaptureCallback? screenshotCapture,
   }) async {
     final list = await executeTests(
       [test],
       context: context,
       stepDelay: stepDelay,
+      screenshotCapture: screenshotCapture,
     );
     return list.first;
   }
@@ -197,7 +203,9 @@ class ScenarioTestExecutor extends ChangeNotifier {
     ScenarioTest test, {
     required BuildContext context,
     required Duration stepDelay,
+    ScreenshotCaptureCallback? screenshotCapture,
   }) async {
+    final capture = screenshotCapture ?? onCaptureScreenshot;
     if (!test.isEnabled) {
       return TestExecutionResult.skipped(
         testId: test.id,
@@ -215,10 +223,11 @@ class ScenarioTestExecutor extends ChangeNotifier {
         ? contextFactory!(context, test.id)
         : InAppStepContext(rootContext: context, testId: test.id);
 
+    await _applyRequiredScenario(test, context, stepContext);
+
     // Initial screenshot checkpoint
-    if (test.screenshotPolicy.captureBeforeTest &&
-        onCaptureScreenshot != null) {
-      final initial = await onCaptureScreenshot!(
+    if (test.screenshotPolicy.captureBeforeTest && capture != null) {
+      final initial = await capture(
         '${test.id}_before_test',
         stepDescription: 'Before test execution',
       );
@@ -271,6 +280,7 @@ class ScenarioTestExecutor extends ChangeNotifier {
 
         final stepStopwatch = Stopwatch()..start();
         final effectiveTimeout = step.timeout ?? test.timeout;
+        final assertionStart = stepContext.recordedAssertions.length;
 
         try {
           await step.execute(stepContext).timeout(effectiveTimeout);
@@ -280,8 +290,8 @@ class ScenarioTestExecutor extends ChangeNotifier {
           ScenarioScreenshot? stepScreenshot;
           if ((step.captureScreenshot ||
                   test.screenshotPolicy.captureAfterSteps) &&
-              onCaptureScreenshot != null) {
-            stepScreenshot = await onCaptureScreenshot!(
+              capture != null) {
+            stepScreenshot = await capture(
               '${test.id}_step_${step.id}',
               stepId: step.id,
               stepDescription: step.description,
@@ -289,11 +299,13 @@ class ScenarioTestExecutor extends ChangeNotifier {
             if (stepScreenshot != null) screenshots.add(stepScreenshot);
           }
 
+          final stepAssertions = stepContext.recordedAssertions
+              .sublist(assertionStart, stepContext.recordedAssertions.length);
           stepResults.add(StepExecutionResult.passed(
             stepId: step.id,
             description: step.description,
             duration: stepStopwatch.elapsed,
-            assertions: const [],
+            assertions: stepAssertions,
             screenshotBytes: stepScreenshot?.bytes,
           ));
 
@@ -306,10 +318,12 @@ class ScenarioTestExecutor extends ChangeNotifier {
           failureMessage = e.toString();
           failureStackTrace = st;
 
+          final stepAssertions = stepContext.recordedAssertions
+              .sublist(assertionStart, stepContext.recordedAssertions.length);
+
           ScenarioScreenshot? failScreenshot;
-          if (test.screenshotPolicy.captureOnFailure &&
-              onCaptureScreenshot != null) {
-            failScreenshot = await onCaptureScreenshot!(
+          if (test.screenshotPolicy.captureOnFailure && capture != null) {
+            failScreenshot = await capture(
               '${test.id}_failure_${step.id}',
               stepId: step.id,
               stepDescription: step.description,
@@ -323,6 +337,7 @@ class ScenarioTestExecutor extends ChangeNotifier {
             duration: stepStopwatch.elapsed,
             errorMessage: failureMessage,
             stackTrace: failureStackTrace,
+            assertions: stepAssertions,
             screenshotBytes: failScreenshot?.bytes,
           ));
 
@@ -347,19 +362,16 @@ class ScenarioTestExecutor extends ChangeNotifier {
     // Success checkpoint screenshot
     if (!testFailed &&
         test.screenshotPolicy.captureOnSuccess &&
-        onCaptureScreenshot != null) {
-      final successScreenshot = await onCaptureScreenshot!(
+        capture != null) {
+      final successScreenshot = await capture(
         '${test.id}_success',
         stepDescription: 'After successful execution',
       );
       if (successScreenshot != null) screenshots.add(successScreenshot);
     }
 
-    // Extract assertions and logs if available from context
-    List<String> logs = const [];
-    if (stepContext is InAppStepContext) {
-      logs = stepContext.logs;
-    }
+    final logs = stepContext.recordedLogs;
+    final assertions = stepContext.recordedAssertions;
 
     if (testFailed) {
       return TestExecutionResult.failed(
@@ -373,6 +385,7 @@ class ScenarioTestExecutor extends ChangeNotifier {
         stepResults: stepResults,
         screenshots: screenshots,
         logs: logs,
+        assertions: assertions,
       );
     }
 
@@ -385,7 +398,30 @@ class ScenarioTestExecutor extends ChangeNotifier {
       stepResults: stepResults,
       screenshots: screenshots,
       logs: logs,
+      assertions: assertions,
     );
+  }
+
+  Future<void> _applyRequiredScenario(
+    ScenarioTest test,
+    BuildContext context,
+    ScenarioStepContext stepContext,
+  ) async {
+    final scenarioId = test.requiredScenarioId;
+    if (scenarioId == null || scenarioId.trim().isEmpty) return;
+
+    final controller = stepContext.resolveScenarioController() ??
+        ScenarioScope.maybeOf(context);
+    if (controller == null) {
+      throw StateError(
+        'Test "${test.id}" requires scenario "$scenarioId" but no '
+        'ScenarioController was found in the widget tree.',
+      );
+    }
+    stepContext.log('Selecting required scenario "$scenarioId"');
+    controller.selectById(scenarioId);
+    await stepContext.pump(const Duration(milliseconds: 300));
+    await stepContext.pump();
   }
 
   void _updateProgress({

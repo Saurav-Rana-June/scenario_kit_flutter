@@ -91,7 +91,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           home: ScenarioScope(
-            notifier: controller,
+            controller: controller,
             child: ScenarioStateBuilder<TestState>(
               builder: (context, state) {
                 if (state is TestLoadingState) {

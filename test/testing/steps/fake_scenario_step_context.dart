@@ -11,7 +11,7 @@ class FakeScenarioStepContext implements ScenarioStepContext {
   final String testId;
 
   final List<String> logs = [];
-  final List<AssertionResult> recordedAssertions = [];
+  final List<AssertionResult> _storedAssertions = [];
   final List<String> calls = [];
 
   final Set<String> existingFinders = {};
@@ -117,6 +117,16 @@ class FakeScenarioStepContext implements ScenarioStepContext {
 
   @override
   void recordAssertion(AssertionResult assertion) {
-    recordedAssertions.add(assertion);
+    _storedAssertions.add(assertion);
   }
+
+  @override
+  List<String> get recordedLogs => List.unmodifiable(logs);
+
+  @override
+  List<AssertionResult> get recordedAssertions =>
+      List.unmodifiable(_storedAssertions);
+
+  @override
+  ScenarioController? resolveScenarioController() => null;
 }

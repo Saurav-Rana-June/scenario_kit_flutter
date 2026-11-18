@@ -5,6 +5,24 @@ All notable changes to `scenario_kit_flutter` will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.2.1] - 2026-11-18
+
+### Added
+- `ScenarioKitContentMode`, `ScenarioSelectionPersistence`, and `Scenario.paginationLoading` factory.
+- `Scenario.tags` for panel search; `ScenarioTest.requiredScenarioId` and `SelectScenarioStep`.
+- `StepFinder.bySemanticsLabel`; test registry `replaceSuite`, `unregisterSuite`, `getTestsByTag`, and `DuplicateTestException`.
+- In-app screenshot capture via `ScenarioKitBindings`; dashboard tag filters and copy JSON/HTML report actions.
+- Example `integration_test/` sample; harness `resetBetweenTests`.
+
+### Changed
+- `flutter_test` moved to package `dev_dependencies`; harness utilities export only from `testing.dart`.
+- `ScenarioScope` is now a plain `InheritedWidget` (fixes scenario switching under test harness).
+- Assertion results and logs propagate into `TestExecutionResult`; runner wires default screenshots.
+
+### Fixed
+- Single-default validation on `ScenarioRegistry`; nested `ScenarioScope` in `ScenarioKit`/`ScenarioViewer`.
+- Example network tests align scenarios via `requiredScenarioId` / `SelectScenarioStep`.
+
 ## [0.2.0] - 2026-11-17
 
 ### Added - ScenarioKit Test Mode

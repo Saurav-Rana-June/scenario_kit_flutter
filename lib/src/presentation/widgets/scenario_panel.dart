@@ -93,8 +93,10 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
           scenario.description?.toLowerCase().contains(_searchQuery) ?? false;
       final groupMatch =
           scenario.group?.toLowerCase().contains(_searchQuery) ?? false;
+      final tagMatch =
+          scenario.tags.any((t) => t.toLowerCase().contains(_searchQuery));
 
-      return nameMatch || idMatch || descMatch || groupMatch;
+      return nameMatch || idMatch || descMatch || groupMatch || tagMatch;
     }).toList();
   }
 
@@ -539,7 +541,7 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
         controller: _searchController,
         style: TextStyle(color: panelTheme.textColor, fontSize: 13),
         decoration: InputDecoration(
-          hintText: 'Search scenarios by name, ID, or tag...',
+          hintText: 'Search scenarios by name, ID, group, or tag...',
           hintStyle: TextStyle(
             color: panelTheme.subtitleColor.withValues(alpha: 0.6),
             fontSize: 13,

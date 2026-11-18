@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../../presentation/scenario_kit_bindings.dart';
 import '../definitions/scenario_test.dart';
 import '../executor/scenario_test_executor.dart';
 import '../executor/test_execution_progress.dart';
@@ -34,6 +35,31 @@ class ScenarioTestRunner {
   /// Cancels an in-progress execution run.
   void cancel() => executor.cancel();
 
+  ScreenshotCaptureCallback? _screenshotCapture(BuildContext context) {
+    final bindings = ScenarioKitBindings.maybeOf(context);
+    if (bindings == null) return null;
+    return (name, {stepId, stepDescription}) =>
+        bindings.screenshotService.capture(
+          name: name,
+          context: context,
+          stepId: stepId,
+          stepDescription: stepDescription,
+        );
+  }
+
+  Future<T> _markTestsRunning<T>(
+    BuildContext context,
+    Future<T> Function() run,
+  ) async {
+    final bindings = ScenarioKitBindings.maybeOf(context);
+    bindings?.testsRunning.value = true;
+    try {
+      return await run();
+    } finally {
+      bindings?.testsRunning.value = false;
+    }
+  }
+
   /// **Mode A**: Executes a single functionality test by [testId].
   Future<TestExecutionResult> runFunctionalityTest(
     String testId, {
@@ -41,11 +67,14 @@ class ScenarioTestRunner {
     Duration stepDelay = Duration.zero,
   }) async {
     final test = registry.requireTestById(testId);
-    return executor.executeTest(
-      test,
-      context: context,
-      stepDelay: stepDelay,
-    );
+    return _markTestsRunning(context, () {
+      return executor.executeTest(
+        test,
+        context: context,
+        stepDelay: stepDelay,
+        screenshotCapture: _screenshotCapture(context),
+      );
+    });
   }
 
   /// **Mode A**: Executes an arbitrary selected group of functionality tests by their [testIds].
@@ -63,12 +92,15 @@ class ScenarioTestRunner {
     }
 
     final startTime = DateTime.now();
-    final results = await executor.executeTests(
-      tests,
-      context: context,
-      stopOnFirstFailure: stopOnFirstFailure,
-      stepDelay: stepDelay,
-    );
+    final results = await _markTestsRunning(context, () {
+      return executor.executeTests(
+        tests,
+        context: context,
+        stopOnFirstFailure: stopOnFirstFailure,
+        stepDelay: stepDelay,
+        screenshotCapture: _screenshotCapture(context),
+      );
+    });
     final endTime = DateTime.now();
 
     return ScreenExecutionSummary.fromResults(
@@ -95,12 +127,15 @@ class ScenarioTestRunner {
         : allScreenTests.where((t) => t.group?.trim() == group.trim()).toList();
 
     final startTime = DateTime.now();
-    final results = await executor.executeTests(
-      tests,
-      context: context,
-      stopOnFirstFailure: stopOnFirstFailure,
-      stepDelay: stepDelay,
-    );
+    final results = await _markTestsRunning(context, () {
+      return executor.executeTests(
+        tests,
+        context: context,
+        stopOnFirstFailure: stopOnFirstFailure,
+        stepDelay: stepDelay,
+        screenshotCapture: _screenshotCapture(context),
+      );
+    });
     final endTime = DateTime.now();
 
     return ScreenExecutionSummary.fromResults(

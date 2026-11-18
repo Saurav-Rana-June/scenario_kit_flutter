@@ -69,7 +69,9 @@ void registerExampleFunctionalTests([ScenarioTestRegistry? registry]) {
         ScenarioTest(
           name: 'Offline Warning Indicator',
           group: 'Offline Mode',
+          tags: const ['network', 'smoke'],
           description: 'Checks offline cached mode warning banner',
+          requiredScenarioId: 'network_offline',
           steps: [
             AssertExistsStep(finder: StepFinder.byIcon(Icons.wifi_off_rounded)),
           ],
@@ -77,7 +79,9 @@ void registerExampleFunctionalTests([ScenarioTestRegistry? registry]) {
         ScenarioTest(
           name: 'Server Error Retry Button',
           group: 'Error Recovery',
+          tags: const ['network', 'regression'],
           description: 'Verifies error state retry action button',
+          requiredScenarioId: 'network_error_500',
           steps: [
             AssertExistsStep(finder: StepFinder.byIcon(Icons.refresh_rounded)),
           ],
@@ -266,7 +270,7 @@ class ScenarioKitExampleApp extends StatelessWidget {
           ),
 
           // 6. Pagination Loading State
-          Scenario(
+          Scenario.paginationLoading(
             id: 'catalog_pagination',
             name: 'Pagination Loading',
             description: 'User scrolls to bottom; page 2 is actively fetching',

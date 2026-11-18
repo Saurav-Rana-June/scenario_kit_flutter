@@ -95,6 +95,7 @@ class ScenarioRegistry extends ChangeNotifier {
     if (_scenarios.containsKey(scenario.id)) {
       throw DuplicateScenarioException(scenario.id);
     }
+    _assertSingleDefault(scenario);
     _scenarios[scenario.id] = scenario;
     notifyListeners();
   }
@@ -112,9 +113,28 @@ class ScenarioRegistry extends ChangeNotifier {
     }
 
     for (final scenario in scenarios) {
+      _assertSingleDefault(scenario);
       _scenarios[scenario.id] = scenario;
     }
+    _validateDefaultScenarioCount();
     notifyListeners();
+  }
+
+  void _assertSingleDefault(Scenario scenario) {
+    if (!scenario.isDefault) return;
+    for (final existing in _scenarios.values) {
+      if (existing.isDefault && existing.id != scenario.id) {
+        throw MultipleDefaultScenarioException([existing.id, scenario.id]);
+      }
+    }
+  }
+
+  void _validateDefaultScenarioCount() {
+    final defaultIds =
+        _scenarios.values.where((s) => s.isDefault).map((s) => s.id).toList();
+    if (defaultIds.length > 1) {
+      throw MultipleDefaultScenarioException(defaultIds);
+    }
   }
 
   /// Unregisters the scenario with [id].

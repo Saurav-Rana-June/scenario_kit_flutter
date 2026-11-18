@@ -2,9 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../core/scenario.dart';
+import '../core/scenario_content_mode.dart';
 import '../core/scenario_controller.dart';
+import '../core/scenario_persistence.dart';
 import '../core/scenario_registry.dart';
 import '../testing/registry/scenario_test_registry.dart';
+import '../testing/screenshot/scenario_repaint_boundary.dart';
+import '../testing/screenshot/scenario_screenshot_service.dart';
+import 'scenario_kit_bindings.dart';
 import 'scenario_scope.dart';
 import 'scenario_viewer.dart';
 import 'theme/scenario_panel_theme.dart';
@@ -21,14 +26,18 @@ class ScenarioKit extends StatefulWidget {
   /// Creates a [ScenarioKit] wrapper.
   ///
   /// Provide scenarios via [scenarios], [registry], or [controller].
-  /// If [child] is provided, it is displayed with the floating trigger overlay.
-  /// If [child] is omitted, [ScenarioViewer] is rendered to preview registered scenarios.
+  ///
+  /// **Content modes**
+  /// - Without [child]: renders [ScenarioViewer] from scenarios ([ScenarioKitContentMode.preview]).
+  /// - With [child] only: keeps [child] visible; scenario picker updates [ScenarioController] for adapters ([ScenarioKitContentMode.overlay]).
+  /// - With [child] and [scenarios]: [ScenarioKitContentMode.hybrid] registers [child] as a default scenario and previews all states via [ScenarioViewer].
   const ScenarioKit({
     super.key,
     this.scenarios,
     this.registry,
     this.controller,
     this.child,
+    this.contentMode,
     this.initialScenarioId,
     this.enabled = kDebugMode,
     this.showFloatingTrigger = true,
@@ -36,6 +45,8 @@ class ScenarioKit extends StatefulWidget {
     this.theme,
     this.emptyBuilder,
     this.testRegistry,
+    this.persistence,
+    this.hideOverlayWhileTestsRun = true,
   }) : assert(
           child != null ||
               scenarios != null ||
@@ -53,21 +64,22 @@ class ScenarioKit extends StatefulWidget {
   /// Explicit [ScenarioController].
   final ScenarioController? controller;
 
-  /// Screen or widget to wrap. If `null`, [ScenarioViewer] is displayed.
+  /// Screen or widget to wrap. Interpretation depends on [contentMode].
   final Widget? child;
+
+  /// How [child] and [scenarios] are combined. Inferred when omitted.
+  final ScenarioKitContentMode? contentMode;
 
   /// ID of the initial scenario to select.
   final String? initialScenarioId;
 
   /// Whether the ScenarioKit developer overlay and controls are enabled.
-  ///
-  /// Defaults to [kDebugMode] so preview panels are excluded in production release builds.
   final bool enabled;
 
-  /// Whether to display the interactive floating trigger button. Defaults to `true`.
+  /// Whether to display the interactive floating trigger button.
   final bool showFloatingTrigger;
 
-  /// Initial alignment of the floating trigger. Defaults to [Alignment.bottomRight].
+  /// Initial alignment of the floating trigger.
   final Alignment floatingTriggerAlignment;
 
   /// Custom developer theme for the panels and floating trigger.
@@ -76,8 +88,14 @@ class ScenarioKit extends StatefulWidget {
   /// Widget builder shown when no scenarios are available.
   final WidgetBuilder? emptyBuilder;
 
-  /// Optional test registry to bind to in Test Mode. If omitted, uses [ScenarioTestRegistry.instance].
+  /// Optional test registry to bind to in Test Mode.
   final ScenarioTestRegistry? testRegistry;
+
+  /// Optional persistence for last selected scenario ID.
+  final ScenarioSelectionPersistence? persistence;
+
+  /// Hides the floating trigger while functional tests are executing.
+  final bool hideOverlayWhileTestsRun;
 
   @override
   State<ScenarioKit> createState() => _ScenarioKitState();
@@ -86,88 +104,178 @@ class ScenarioKit extends StatefulWidget {
 class _ScenarioKitState extends State<ScenarioKit> {
   late ScenarioController _controller;
   bool _ownsController = false;
+  final GlobalKey _screenshotBoundaryKey = GlobalKey();
+  late final ScenarioScreenshotService _screenshotService;
+  final ValueNotifier<bool> _testsRunning = ValueNotifier<bool>(false);
 
   @override
   void initState() {
     super.initState();
+    _screenshotService = ScenarioScreenshotService(
+      boundaryKey: _screenshotBoundaryKey,
+    );
     _initController();
+    _restorePersistedScenario();
+  }
+
+  ScenarioKitContentMode get _resolvedContentMode {
+    if (widget.contentMode != null) return widget.contentMode!;
+    if (widget.child == null) return ScenarioKitContentMode.preview;
+    if (widget.scenarios != null && widget.scenarios!.isNotEmpty) {
+      return ScenarioKitContentMode.hybrid;
+    }
+    return ScenarioKitContentMode.overlay;
   }
 
   void _initController() {
     if (widget.controller != null) {
       _controller = widget.controller!;
       _ownsController = false;
-    } else if (widget.registry != null) {
+      return;
+    }
+
+    if (widget.registry != null) {
       _controller = ScenarioController(
         registry: widget.registry,
         initialScenarioId: widget.initialScenarioId,
+        persistence: widget.persistence,
       );
       _ownsController = true;
-    } else {
-      _controller = ScenarioController.fromScenarios(
-        widget.scenarios ?? const [],
-        initialScenarioId: widget.initialScenarioId,
-      );
-      _ownsController = true;
+      return;
     }
+
+    final scenarios = _buildEffectiveScenarios();
+    _controller = ScenarioController.fromScenarios(
+      scenarios,
+      initialScenarioId: widget.initialScenarioId,
+      persistence: widget.persistence,
+    );
+    _ownsController = true;
+  }
+
+  List<Scenario> _buildEffectiveScenarios() {
+    final input = widget.scenarios ?? const <Scenario>[];
+    if (widget.child == null || _resolvedContentMode != ScenarioKitContentMode.hybrid) {
+      return input;
+    }
+
+    final childScenario = Scenario.success(
+      id: 'production_child',
+      name: 'Production Screen',
+      description: 'Wrapped production widget',
+      isDefault: input.every((s) => !s.isDefault),
+      builder: (context) => widget.child!,
+    );
+
+    final combined = <Scenario>[childScenario, ...input];
+    return combined;
+  }
+
+  Future<void> _restorePersistedScenario() async {
+    final persistence = widget.persistence;
+    if (persistence == null || !_ownsController) return;
+    final id = await persistence.loadLastScenarioId();
+    if (!mounted || id == null) return;
+    _controller.trySelectById(id);
   }
 
   @override
   void didUpdateWidget(covariant ScenarioKit oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.controller != oldWidget.controller) {
+    final controllerChanged = widget.controller != oldWidget.controller;
+    final scenariosChanged = widget.scenarios != oldWidget.scenarios;
+    final childChanged = widget.child != oldWidget.child;
+    final modeChanged = widget.contentMode != oldWidget.contentMode;
+
+    if (controllerChanged) {
       if (_ownsController) {
         _controller.dispose();
       }
+      _initController();
+      return;
+    }
+
+    if (_ownsController && (scenariosChanged || childChanged || modeChanged)) {
+      _controller.dispose();
       _initController();
     }
   }
 
   @override
   void dispose() {
+    _testsRunning.dispose();
     if (_ownsController) {
       _controller.dispose();
     }
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    // If disabled (e.g. in release mode), render child without developer overlays
-    if (!widget.enabled) {
-      if (widget.child != null) return widget.child!;
-      return ScenarioViewer(
-        controller: _controller,
-        emptyBuilder: widget.emptyBuilder,
-      );
-    }
-
-    final content = widget.child ??
-        ScenarioViewer(
+  Widget _buildContent() {
+    switch (_resolvedContentMode) {
+      case ScenarioKitContentMode.preview:
+      case ScenarioKitContentMode.hybrid:
+        return ScenarioViewer(
           controller: _controller,
           emptyBuilder: widget.emptyBuilder,
+          wrapWithScope: false,
         );
+      case ScenarioKitContentMode.overlay:
+        return widget.child ??
+            ScenarioViewer(
+              controller: _controller,
+              emptyBuilder: widget.emptyBuilder,
+            );
+    }
+  }
 
-    if (!widget.showFloatingTrigger) {
-      return ScenarioScope(
-        notifier: _controller,
-        child: content,
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.enabled) {
+      final content = widget.child ?? _buildContent();
+      return ScenarioRepaintBoundary(
+        boundaryKey: _screenshotBoundaryKey,
+        child: ScenarioScope(
+          controller: _controller,
+          child: content,
+        ),
       );
     }
 
+    final content = ScenarioRepaintBoundary(
+      boundaryKey: _screenshotBoundaryKey,
+      child: _buildContent(),
+    );
+
+    final body = !widget.showFloatingTrigger
+        ? content
+        : Stack(
+            fit: StackFit.passthrough,
+            children: [
+              content,
+              ValueListenableBuilder<bool>(
+                valueListenable: _testsRunning,
+                builder: (context, running, _) {
+                  if (widget.hideOverlayWhileTestsRun && running) {
+                    return const SizedBox.shrink();
+                  }
+                  return ScenarioFloatingTrigger(
+                    controller: _controller,
+                    testRegistry: widget.testRegistry,
+                    theme: widget.theme,
+                    initialAlignment: widget.floatingTriggerAlignment,
+                  );
+                },
+              ),
+            ],
+          );
+
     return ScenarioScope(
-      notifier: _controller,
-      child: Stack(
-        fit: StackFit.passthrough,
-        children: [
-          content,
-          ScenarioFloatingTrigger(
-            controller: _controller,
-            testRegistry: widget.testRegistry,
-            theme: widget.theme,
-            initialAlignment: widget.floatingTriggerAlignment,
-          ),
-        ],
+      controller: _controller,
+      child: ScenarioKitBindings(
+        screenshotBoundaryKey: _screenshotBoundaryKey,
+        screenshotService: _screenshotService,
+        testsRunning: _testsRunning,
+        child: body,
       ),
     );
   }

@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../testing/definitions/scenario_test.dart';
 import '../../testing/definitions/test_status.dart';
 import '../../testing/executor/test_execution_progress.dart';
 import '../../testing/executor/test_execution_result.dart';
 import '../../testing/registry/scenario_test_registry.dart';
+import '../../testing/reporting/html_report_exporter.dart';
+import '../../testing/reporting/json_report_exporter.dart';
 import '../../testing/reporting/scenario_test_report.dart';
 import '../../testing/runner/execution_mode.dart';
 import '../../testing/runner/scenario_test_runner.dart';
@@ -47,6 +50,7 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
 
   String? _selectedScreen;
   String? _selectedGroup;
+  String? _selectedTag;
   String _searchQuery = '';
   final Set<String> _selectedTestIds = {};
   final Set<String> _expandedTestIds = {};
@@ -94,6 +98,12 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
           list.where((t) => t.group?.trim() == _selectedGroup!.trim()).toList();
     }
 
+    if (_selectedTag != null) {
+      list = list
+          .where((t) => t.tags.map((e) => e.trim()).contains(_selectedTag))
+          .toList();
+    }
+
     if (_searchQuery.isNotEmpty) {
       list = list.where((t) {
         final matchName = t.name.toLowerCase().contains(_searchQuery);
@@ -103,7 +113,13 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
             t.group?.toLowerCase().contains(_searchQuery) ?? false;
         final matchScreen =
             t.screen?.toLowerCase().contains(_searchQuery) ?? false;
-        return matchName || matchDesc || matchGroup || matchScreen;
+        final matchTags =
+            t.tags.any((tag) => tag.toLowerCase().contains(_searchQuery));
+        return matchName ||
+            matchDesc ||
+            matchGroup ||
+            matchScreen ||
+            matchTags;
       }).toList();
     }
 
@@ -171,6 +187,28 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
     });
   }
 
+  void _copyReportJson() {
+    final summary = _lastSummary;
+    if (summary == null) return;
+    final report = ScenarioTestReport.fromSummaries(
+      title: 'In-App Test Report',
+      summaries: [summary],
+    );
+    final json = const JsonReportExporter().export(report);
+    Clipboard.setData(ClipboardData(text: json));
+  }
+
+  void _copyReportHtml() {
+    final summary = _lastSummary;
+    if (summary == null) return;
+    final report = ScenarioTestReport.fromSummaries(
+      title: 'In-App Test Report',
+      summaries: [summary],
+    );
+    final html = const HtmlReportExporter().export(report);
+    Clipboard.setData(ClipboardData(text: html));
+  }
+
   Future<void> _runSingleTest(BuildContext context, ScenarioTest test) async {
     final result =
         await _runner.runFunctionalityTest(test.id, context: context);
@@ -195,6 +233,7 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
     final filteredTests = _getFilteredItems();
     final screens = _registry.screens;
     final groups = _getAvailableGroups();
+    final tags = _registry.allTags;
 
     return Material(
       color: panelTheme.backgroundColor,
@@ -204,6 +243,7 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
           _buildHeader(panelTheme),
           _buildScreenFilterChips(screens, panelTheme),
           if (groups.isNotEmpty) _buildGroupFilterChips(groups, panelTheme),
+          if (tags.isNotEmpty) _buildTagFilterChips(tags, panelTheme),
           _buildSearchBar(panelTheme),
           _buildActionControls(context, filteredTests, panelTheme),
           ValueListenableBuilder<TestExecutionProgress>(
@@ -297,6 +337,16 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
           ),
           const Spacer(),
           if (_lastSummary != null) ...[
+            IconButton(
+              tooltip: 'Copy JSON report',
+              icon: const Icon(Icons.data_object_rounded, size: 18),
+              onPressed: () => _copyReportJson(),
+            ),
+            IconButton(
+              tooltip: 'Copy HTML report',
+              icon: const Icon(Icons.html_rounded, size: 18),
+              onPressed: () => _copyReportHtml(),
+            ),
             FilledButton.tonalIcon(
               key: const ValueKey('view_report_button'),
               icon: const Icon(Icons.bar_chart_rounded, size: 16),
@@ -450,6 +500,33 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildTagFilterChips(
+      List<String> tags, ScenarioPanelThemeData panelTheme) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.fromLTRB(14, 0, 14, 6),
+      child: Row(
+        children: [
+          _buildFilterPill(
+            label: 'All Tags',
+            isSelected: _selectedTag == null,
+            onTap: () => setState(() => _selectedTag = null),
+            panelTheme: panelTheme,
+          ),
+          for (final tag in tags) ...[
+            const SizedBox(width: 6),
+            _buildFilterPill(
+              label: tag,
+              isSelected: _selectedTag == tag,
+              onTap: () => setState(() => _selectedTag = tag),
+              panelTheme: panelTheme,
+            ),
+          ],
+        ],
       ),
     );
   }

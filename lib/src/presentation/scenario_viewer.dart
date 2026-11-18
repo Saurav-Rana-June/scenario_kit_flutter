@@ -21,6 +21,7 @@ class ScenarioViewer extends StatefulWidget {
     this.emptyBuilder,
     this.animationDuration = const Duration(milliseconds: 250),
     this.transitionBuilder = AnimatedSwitcher.defaultTransitionBuilder,
+    this.wrapWithScope = true,
   }) : assert(
           controller != null || registry != null || scenarios != null,
           'Must provide either controller, registry, or scenarios to ScenarioViewer.',
@@ -46,6 +47,9 @@ class ScenarioViewer extends StatefulWidget {
 
   /// Transition animation builder for scenario switching.
   final AnimatedSwitcherTransitionBuilder transitionBuilder;
+
+  /// When `false`, omits an inner [ScenarioScope] (parent must provide one).
+  final bool wrapWithScope;
 
   @override
   State<ScenarioViewer> createState() => _ScenarioViewerState();
@@ -136,35 +140,39 @@ class _ScenarioViewerState extends State<ScenarioViewer> {
 
   @override
   Widget build(BuildContext context) {
-    return ScenarioScope(
-      notifier: _controller,
-      child: AnimatedBuilder(
-        animation: _controller,
-        builder: (context, _) {
-          final selectedScenario = _controller.selectedScenario;
-          final Widget content;
+    final animated = AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) {
+        final selectedScenario = _controller.selectedScenario;
+        final Widget content;
 
-          if (selectedScenario != null) {
-            content = KeyedSubtree(
-              key: ValueKey<String>(selectedScenario.id),
-              child: Builder(builder: selectedScenario.builder),
-            );
-          } else {
-            content = KeyedSubtree(
-              key: const ValueKey<String>('__empty_scenario__'),
-              child: widget.emptyBuilder != null
-                  ? widget.emptyBuilder!(context)
-                  : _buildDefaultEmpty(context),
-            );
-          }
-
-          return AnimatedSwitcher(
-            duration: widget.animationDuration,
-            transitionBuilder: widget.transitionBuilder,
-            child: content,
+        if (selectedScenario != null) {
+          content = KeyedSubtree(
+            key: ValueKey<String>(selectedScenario.id),
+            child: Builder(builder: selectedScenario.builder),
           );
-        },
-      ),
+        } else {
+          content = KeyedSubtree(
+            key: const ValueKey<String>('__empty_scenario__'),
+            child: widget.emptyBuilder != null
+                ? widget.emptyBuilder!(context)
+                : _buildDefaultEmpty(context),
+          );
+        }
+
+        return AnimatedSwitcher(
+          duration: widget.animationDuration,
+          transitionBuilder: widget.transitionBuilder,
+          child: content,
+        );
+      },
+    );
+
+    if (!widget.wrapWithScope) return animated;
+
+    return ScenarioScope(
+      controller: _controller,
+      child: animated,
     );
   }
 }

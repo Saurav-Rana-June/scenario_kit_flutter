@@ -3,17 +3,18 @@ import 'package:flutter/widgets.dart';
 import '../core/scenario.dart';
 import '../core/scenario_controller.dart';
 
-/// Provides a [ScenarioController] down the widget tree.
-class ScenarioScope extends InheritedNotifier<ScenarioController> {
+/// Provides a [ScenarioController] down the widget tree without coupling rebuilds
+/// to [ScenarioController] notifications (use [AnimatedBuilder] for reactive UI).
+class ScenarioScope extends InheritedWidget {
   /// Creates a [ScenarioScope].
   const ScenarioScope({
     super.key,
-    required ScenarioController super.notifier,
+    required this.controller,
     required super.child,
   });
 
   /// The provided [ScenarioController].
-  ScenarioController get controller => notifier!;
+  final ScenarioController controller;
 
   /// Returns the closest [ScenarioController] ancestor in the widget tree,
   /// or throws a [FlutterError] if not found.
@@ -37,12 +38,17 @@ class ScenarioScope extends InheritedNotifier<ScenarioController> {
   static ScenarioController? maybeOf(BuildContext context) {
     return context
         .dependOnInheritedWidgetOfExactType<ScenarioScope>()
-        ?.notifier;
+        ?.controller;
   }
 
   /// Convenience accessor returning the currently selected [Scenario] from the
   /// closest ancestor [ScenarioScope], or `null`.
   static Scenario? selectedScenarioOf(BuildContext context) {
     return maybeOf(context)?.selectedScenario;
+  }
+
+  @override
+  bool updateShouldNotify(covariant ScenarioScope oldWidget) {
+    return oldWidget.controller != controller;
   }
 }
