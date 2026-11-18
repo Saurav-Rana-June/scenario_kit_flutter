@@ -45,11 +45,7 @@ class _ScenarioFloatingTriggerState extends State<ScenarioFloatingTrigger> {
   Offset _dragOffset = Offset.zero;
 
   ScenarioPanelThemeData _resolveTheme(BuildContext context) {
-    if (widget.theme != null) return widget.theme!;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return isDark
-        ? ScenarioPanelThemeData.dark()
-        : ScenarioPanelThemeData.light();
+    return widget.theme ?? ScenarioPanelThemeData.light();
   }
 
   void _openPanel(BuildContext context, ScenarioController controller) {

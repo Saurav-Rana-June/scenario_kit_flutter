@@ -249,7 +249,7 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
 
   @override
   Widget build(BuildContext context) {
-    final panelTheme = widget.theme ?? ScenarioPanelThemeData.dark();
+    final panelTheme = widget.theme ?? ScenarioPanelThemeData.light();
     final filteredTests = _getFilteredItems();
     final screens = _registry.screens;
     final groups = _getAvailableGroups();

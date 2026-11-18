@@ -38,7 +38,7 @@ class ScenarioReportViewerDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final panelTheme = theme ?? ScenarioPanelThemeData.dark();
+    final panelTheme = theme ?? ScenarioPanelThemeData.light();
 
     return Dialog(
       backgroundColor: panelTheme.backgroundColor,

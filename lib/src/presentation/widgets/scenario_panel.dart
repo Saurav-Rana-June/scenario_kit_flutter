@@ -86,11 +86,7 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
   }
 
   ScenarioPanelThemeData _resolveTheme(BuildContext context) {
-    if (widget.theme != null) return widget.theme!;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return isDark
-        ? ScenarioPanelThemeData.dark()
-        : ScenarioPanelThemeData.light();
+    return widget.theme ?? ScenarioPanelThemeData.light();
   }
 
   List<Scenario> _filterScenarios(List<Scenario> all) {
@@ -224,31 +220,45 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
     final scenarios = controller.registry.scenarios;
     final totalTestCount = testRegistry.totalTestCount;
 
-    return Material(
-      color: panelTheme.backgroundColor,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          if (widget.showHeader) ...[
-            _buildDragHandle(panelTheme),
-            _buildHeader(
-              context,
-              controller,
-              panelTheme,
-              scenarios.length,
-              totalTestCount,
+    final lightMaterialTheme = ThemeData(
+      brightness: Brightness.light,
+      colorScheme: ColorScheme.light(
+        primary: panelTheme.primaryColor,
+        surface: panelTheme.surfaceColor,
+        onSurface: panelTheme.textColor,
+      ),
+      scaffoldBackgroundColor: panelTheme.backgroundColor,
+      useMaterial3: true,
+    );
+
+    return Theme(
+      data: lightMaterialTheme,
+      child: Material(
+        color: panelTheme.backgroundColor,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (widget.showHeader) ...[
+              _buildDragHandle(panelTheme),
+              _buildHeader(
+                context,
+                controller,
+                panelTheme,
+                scenarios.length,
+                totalTestCount,
+              ),
+            ],
+            Expanded(
+              child: _buildActiveTabBody(
+                context,
+                controller,
+                testRegistry,
+                panelTheme,
+                scenarios,
+              ),
             ),
           ],
-          Expanded(
-            child: _buildActiveTabBody(
-              context,
-              controller,
-              testRegistry,
-              panelTheme,
-              scenarios,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

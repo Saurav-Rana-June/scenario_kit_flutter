@@ -22,7 +22,7 @@ class ScenarioPanelThemeData {
     this.warningColor = const Color(0xFFF59E0B),
   });
 
-  /// Factory for sleek dark developer theme (default).
+  /// Factory for dark developer theme.
   factory ScenarioPanelThemeData.dark() {
     return const ScenarioPanelThemeData(
       backgroundColor: Color(0xFF0F1117),
@@ -43,7 +43,7 @@ class ScenarioPanelThemeData {
     );
   }
 
-  /// Factory for clean light developer theme.
+  /// Factory for clean light developer theme (default studio design).
   factory ScenarioPanelThemeData.light() {
     return const ScenarioPanelThemeData(
       backgroundColor: Color(0xFFF7F7FB),
