@@ -22,7 +22,6 @@ export 'src/presentation/scenario_viewer.dart';
 export 'src/presentation/theme/scenario_panel_theme.dart';
 export 'src/presentation/widgets/scenario_floating_trigger.dart';
 export 'src/presentation/widgets/scenario_panel.dart';
-export 'src/presentation/widgets/scenario_prototype_view.dart';
 export 'src/presentation/widgets/scenario_report_viewer.dart';
 export 'src/presentation/widgets/scenario_test_dashboard.dart';
 export 'src/testing/assertions/assertion_result.dart';
