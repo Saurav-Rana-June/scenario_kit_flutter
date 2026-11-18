@@ -143,17 +143,23 @@ class InAppStepContext implements ScenarioStepContext {
     if (element == null) return null;
 
     final widget = element.widget;
+    if (widget is EditableText) {
+      return widget.controller.text;
+    }
+    if (widget is TextField) {
+      return widget.controller?.text;
+    }
     if (widget is Text) {
       return widget.data ?? widget.textSpan?.toPlainText();
     }
     if (widget is RichText) {
       return widget.text.toPlainText();
     }
-    if (widget is EditableText) {
-      return widget.controller.text;
-    }
-    if (widget is TextField) {
-      return widget.controller?.text;
+
+    // Inspect child EditableText descendants first (e.g. inside CustomTextField or TextFormField)
+    final editable = _findEditableTextState(element);
+    if (editable != null) {
+      return editable.widget.controller.text;
     }
 
     // Inspect child text and editable elements if target is a container
@@ -167,14 +173,6 @@ class InAppStepContext implements ScenarioStepContext {
       }
       if (w is RichText) {
         childText = w.text.toPlainText();
-        return;
-      }
-      if (w is EditableText) {
-        childText = w.controller.text;
-        return;
-      }
-      if (w is TextField) {
-        childText = w.controller?.text;
         return;
       }
       el.visitChildElements(visitor);
@@ -208,7 +206,7 @@ class InAppStepContext implements ScenarioStepContext {
           'Cannot tap: Target widget ${finder.description} does not have a RenderBox.');
     }
 
-    if (_invokeDirectTap(element.widget)) {
+    if (_invokeDirectTap(element)) {
       await pumpAndSettle();
       return;
     }
@@ -232,7 +230,25 @@ class InAppStepContext implements ScenarioStepContext {
     await pumpAndSettle();
   }
 
-  bool _invokeDirectTap(Widget widget) {
+  bool _invokeDirectTap(Element element) {
+    if (_tryInvokeTap(element.widget)) return true;
+
+    // Inspect child elements if the target is a wrapper (e.g. CustomElevatedButton)
+    bool handled = false;
+    void visitor(Element el) {
+      if (handled) return;
+      if (_tryInvokeTap(el.widget)) {
+        handled = true;
+        return;
+      }
+      el.visitChildElements(visitor);
+    }
+
+    element.visitChildElements(visitor);
+    return handled;
+  }
+
+  bool _tryInvokeTap(Widget widget) {
     if (widget is ElevatedButton) {
       widget.onPressed?.call();
       return widget.onPressed != null;
@@ -257,6 +273,21 @@ class InAppStepContext implements ScenarioStepContext {
       widget.onTap!();
       return true;
     }
+    if (widget is GestureDetector && widget.onTap != null) {
+      widget.onTap!();
+      return true;
+    }
+    try {
+      final dynamic w = widget;
+      if (w.onPressed is VoidCallback && w.onPressed != null) {
+        w.onPressed();
+        return true;
+      }
+      if (w.onTap is VoidCallback && w.onTap != null) {
+        w.onTap();
+        return true;
+      }
+    } catch (_) {}
     return false;
   }
 
@@ -329,6 +360,7 @@ class InAppStepContext implements ScenarioStepContext {
     final controller = editable.widget.controller;
     controller.text = text;
     controller.selection = TextSelection.collapsed(offset: text.length);
+    await pumpAndSettle();
   }
 
   @override
@@ -346,6 +378,7 @@ class InAppStepContext implements ScenarioStepContext {
     }
 
     editable.widget.controller.clear();
+    await pumpAndSettle();
   }
 
   @override
@@ -396,12 +429,12 @@ class InAppStepContext implements ScenarioStepContext {
     await InAppPointerEvents.dragLine(start, end, duration: duration);
   }
 
-  @override
   bool get _isAutomatedTestBinding {
     final name = WidgetsBinding.instance.runtimeType.toString();
     return name.contains('AutomatedTest');
   }
 
+  @override
   Future<void> pumpAndSettle(
       [Duration timeout = const Duration(seconds: 10)]) async {
     if (_isAutomatedTestBinding) {
