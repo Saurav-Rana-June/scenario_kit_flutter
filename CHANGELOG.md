@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-18
+
 ### Added
 - **UI/UX Redesign of Developer Bottom Sheet**: Redesigned developer bottom sheet chrome with a clean, friendly light-theme visual console (Notion/Linear style) matching light-mode visual design standards.
 - **Three-Tab Navigation Architecture**:
@@ -25,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Test Mode **Run All** from the bottom sheet now runs against the live app UI (via `appContentKey` / `executionContext`) instead of the modal route, and the sheet stays open while tests run.
 - In-app taps no longer inject pointer id `0` (fixes Chrome `PointerHoverEvent` gesture assertions and bottom sheet dismissals); uses `InAppPointerEvents` with hit-test and non-mouse pointer ids.
 - Widget search during in-app runs is scoped to app content under test (not the whole element tree including the modal).
+
+### Changed
+- Declare `flutter_test` in `dependencies` (pub.dev requires it for testing APIs exported from `lib/testing.dart`).
 
 ## [0.2.1] - 2026-11-18
 

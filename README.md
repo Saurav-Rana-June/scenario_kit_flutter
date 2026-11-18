@@ -1,6 +1,8 @@
 # ScenarioKit Flutter
 
-A developer-focused Flutter toolkit to define, preview, test, and switch between different UI scenarios of application screens without altering production code or business logic.
+**ScenarioKit Flutter** is a developer-focused toolkit to define, preview, switch, and test UI scenarios (loading, success, empty, error, offline, and more) without touching production code. It ships a draggable debug panel, in-app **Test Mode**, step-based functional tests, screenshot capture, and JSON/HTML report export—all on the Flutter SDK only.
+
+**Pub:** [pub.dev/packages/scenario_kit_flutter](https://pub.dev/packages/scenario_kit_flutter)
 
 [![pub package](https://img.shields.io/pub/v/scenario_kit_flutter.svg)](https://pub.dev/packages/scenario_kit_flutter)
 [![pub points](https://img.shields.io/pub/points/scenario_kit_flutter?color=blue)](https://pub.dev/packages/scenario_kit_flutter)
@@ -11,29 +13,99 @@ A developer-focused Flutter toolkit to define, preview, test, and switch between
 
 ## 🎯 The Problem
 
-Developers frequently need to preview and test diverse UI states:
-- **Loading:** Shimmers, progress spinners, skeleton loaders.
-- **Success:** Normal data lists, populated grids.
-- **Empty:** Zero search results, first-time user empty states.
-- **Error:** HTTP 500, invalid inputs, connection timeouts.
-- **Offline:** Cached offline data, network warning banners.
-- **Pagination:** Multi-page lists with bottom loaders.
+### Previewing UI states
 
-Traditionally, previewing these requires hacking API responses, manually toggling state flags, disconnecting Wi-Fi, or running repetitive app rebuilds.
+Developers constantly need to see how a screen looks in every meaningful state:
 
-**ScenarioKit Flutter makes testing and switching between UI states effortless and interactive.**
+- **Loading:** shimmers, spinners, skeleton loaders.
+- **Success:** populated lists and grids.
+- **Empty:** zero results, first-time user states.
+- **Error:** HTTP 500, validation failures, timeouts.
+- **Offline:** cached data, connectivity banners.
+- **Pagination:** “load more” and tail loaders.
+
+Usually that means mocking APIs, flipping debug flags, killing the network, or rebuilding the app—slow, fragile, and easy to forget edge cases.
+
+### Exercising flows on a real build
+
+The same team also needs to **run functional checks** (tap fields, submit forms, assert copy and navigation) without maintaining two separate systems:
+
+- Widget tests live in `test/` and rarely feel like the running app.
+- Integration tests are powerful but heavy to wire up for every screen iteration.
+- QA scripts in spreadsheets don’t run inside the debug build designers and PMs already have on device.
+
+Failures are hard to share: no single place for step traces, screenshots, and exportable reports during day-to-day development.
+
+### What ScenarioKit changes
+
+**ScenarioKit Flutter** connects both problems in one debug-only toolkit:
+
+1. **Scenarios** — register UI states once and switch between them from a floating panel (search, groups, apply & preview).
+2. **Test Mode** — define reusable **interaction + assertion steps** per screen, run **Run Selected** / **Run All** against the **live app UI**, and review results in the **Report** tab with JSON/HTML export and screenshots.
+3. **Same tests in CI** — import `package:scenario_kit_flutter/testing.dart` and run the identical suites with `ScenarioTestHarness` in `flutter test` or integration tests.
+
+Previewing states and validating flows stop being separate hacks—they share one registry, one mental model, and one report format.
 
 ---
 
 ## ✨ Features
 
-- **🚀 Zero Mandatory Third-Party Dependencies:** Pure Flutter SDK only. Zero bloat, zero version conflicts.
-- **🎨 Modern Developer Tool Aesthetic:** Includes sleek dark and light developer panels with search, group tabs, and metadata inspectors.
-- **⚡ Interactive Floating Trigger:** Draggable badge on your screen displaying active scenario info; tap to open the switcher sheet.
-- **🛡️ Production Safe:** Automatically disabled in release builds (`enabled: kDebugMode`), leaving zero UI overhead in production binaries.
-- **🧩 Framework Agnostic:** Works seamlessly with `setState`, `Bloc`/`Cubit`, `Riverpod`, `Provider`, `GetX`, or any custom state management.
-- **📦 Typed Mock Data Support:** Generic `MockData<T>` container for static datasets, dynamic generators, and simulated network delays.
-- **🧪 Dedicated Testing Toolkit:** First-class widget test helpers (`pumpScenario`, `switchScenario`, custom matchers) via `package:scenario_kit_flutter/testing.dart`.
+### Scenario modeling & preview
+
+- **`Scenario` model** with IDs, names, descriptions, **groups**, **tags**, metadata, and `isDefault`.
+- **Built-in factories:** `Scenario.loading`, `.success`, `.empty`, `.error`, `.offline`, `.paginationLoading`, and custom `builder`s.
+- **`ScenarioRegistry`** & **`ScenarioController`** — register, filter by group, select by ID, reset to default, reactive updates.
+- **`ScenarioViewer`** — render scenarios without the floating trigger (storybook/admin screens).
+- **`ScenarioKitContentMode`** — preview scenarios layered on your live app or as isolated viewers.
+- **`ScenarioSelectionPersistence`** — optional remember-last-scenario across hot restarts (debug).
+
+### Developer UI (debug bottom sheet)
+
+- **`ScenarioFloatingTrigger`** — draggable pill showing the active scenario; opens the panel.
+- **`ScenarioPanel`** — three-tab console: **Scenarios**, **Tests**, **Report**.
+- **Scenarios tab:** search (name, ID, group, tag), horizontal **group filter chips** with counts, responsive **scenario cards** (`DEFAULT` / **✓ Active**), **Apply scenario** / **Apply and preview**, metadata inspector dialog.
+- **Tests tab:** `ScenarioTestDashboard` — screen/group/tag filters, search, select-all, **Run Selected** / **Run All**, per-test status and live execution against the **live app UI** (not the modal route).
+- **Report tab:** `ScenarioReportsTab` — session history, pass/fail filters, expandable step traces, screenshot lightbox, **Copy JSON** / **Copy HTML** / full report viewer.
+- **Header actions:** export last run, reset to default scenario, close sheet.
+- **`ScenarioPanelThemeData`** — light (default panel chrome) and dark themes; customizable colors and radius.
+- **Screen awareness:** `ScenarioKit.screenName` + `onNavigateToScreen` — Test Mode filters to the mounted screen and warns on mismatch.
+
+### In-app functional testing
+
+- **`ScenarioTest`** / **`ScenarioTestSuite`** — declarative tests with groups, tags, timeouts, setup/teardown, **`requiredScenarioId`**, screenshot policies.
+- **`ScenarioTestRegistry`** — register suites, lookup by screen, filter by tag, replace/unregister suites.
+- **Interaction steps:** tap, long-press, enter/clear text, scroll, drag, wait, wait-for-widget, custom steps, **`SelectScenarioStep`**.
+- **Assertion steps:** exists / not exists, text (exact, contains, regex), visible, custom assertions.
+- **`StepFinder`** — by key, text, type, tooltip, icon, semantics label, custom predicates; extensions for `WidgetTester`.
+- **Dual execution:** in-app executor (`InAppStepContext`, real pointer events) and **`ScenarioTestHarness`** for `flutter test` / integration tests.
+- **`ScenarioReportStore`** — reactive session store feeding the Reports tab.
+
+### Reports, screenshots & export
+
+- **`ScenarioScreenshotService`** & **`ScenarioRepaintBoundary`** — PNG capture with configurable policies per test.
+- **`ScenarioTestReport`**, **`HtmlReportExporter`**, **`JsonReportExporter`** — standalone HTML (embedded screenshots) and CI-friendly JSON.
+- **`ScenarioReportViewerDialog`** — KPIs, environment info, step timeline, failures.
+
+### Widget & CI testing (`testing.dart`)
+
+Separate entry point for test packages:
+
+- **`pumpScenario`**, **`switchScenario`**, **`ScenarioTestHarness.runTest`** / **`runSuite`**.
+- **Matchers:** `containsScenario`, `hasDefaultScenario`, `isTestPassed`, `hasPassedSteps`, execution summaries, and more.
+- Same step definitions and registry as in-app Test Mode — one test catalog, two runtimes.
+
+### Data, integrations & ergonomics
+
+- **`MockData<T>`** — static values, generators, async delay simulation; attach to scenario metadata and read via extensions.
+- **`ScenarioStateAdapter`** & **`ScenarioStateBuilder`** — map active scenarios into Bloc/Cubit/Riverpod/Provider-style state without extra deps.
+- **`BuildContext` extensions** — `scenarioController`, `currentScenario`, scoped lookup helpers.
+- **`ScenarioLogger`** — opt-in debug logging.
+
+### Production safety & platform support
+
+- **`ScenarioKit.enabled`** — typically `kDebugMode`; no floating UI or panel overhead in release builds.
+- **Zero mandatory third-party packages** (Flutter SDK + `flutter_test` for exported harness APIs).
+- Runs on **Android, iOS, Web, macOS, Windows, and Linux** (any Flutter target).
 
 ---
 
@@ -43,7 +115,7 @@ Add `scenario_kit_flutter` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  scenario_kit_flutter: ^0.2.0
+  scenario_kit_flutter: ^0.2.2
 ```
 
 Then run:
@@ -479,7 +551,7 @@ Customize the developer panel theme to match your brand or preferences:
 
 ```dart
 ScenarioKit(
-  theme: ScenarioPanelThemeData.dark().copyWith(
+  theme: ScenarioPanelThemeData.light().copyWith(
     primaryColor: Colors.deepPurpleAccent,
     borderRadius: BorderRadius.circular(12),
   ),

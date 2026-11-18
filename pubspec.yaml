@@ -1,6 +1,7 @@
 name: scenario_kit_flutter
-description: A developer-focused Flutter toolkit to define, preview, test, and switch between UI scenarios without altering production code.
-version: 0.2.1
+description: Flutter dev toolkit for interactive UI scenario switching, in-app functional tests, screenshots, and JSON/HTML reports—SDK-only, debug-safe.
+version: 0.2.2
+license: MIT
 homepage: https://github.com/Saurav-Rana-June/scenario_kit_flutter
 repository: https://github.com/Saurav-Rana-June/scenario_kit_flutter
 issue_tracker: https://github.com/Saurav-Rana-June/scenario_kit_flutter/issues
@@ -12,10 +13,10 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
-
-dev_dependencies:
   flutter_test:
     sdk: flutter
+
+dev_dependencies:
   flutter_lints: ^5.0.0
 
 topics:
