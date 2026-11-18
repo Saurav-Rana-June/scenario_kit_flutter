@@ -268,5 +268,73 @@ void main() {
       expect(closed, isTrue);
       expect(navigatedTo, 'Login Screen');
     });
+
+    testWidgets('replaces Run All with go-to-screen action when mismatch',
+        (tester) async {
+      registry.registerTest(
+        ScenarioTest(id: 'login_t', name: 'Login Test', screen: 'Login Screen'),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ScenarioTestDashboard(
+              registry: registry,
+              currentScreenName: 'Dashboard Screen',
+              onNavigateToScreen: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Login Screen'));
+      await tester.pumpAndSettle();
+
+      expect(find.byKey(const ValueKey('run_all_button')), findsNothing);
+      expect(find.byKey(const ValueKey('go_to_screen_run_button')), findsOneWidget);
+      expect(find.text('Go to "Login Screen" to Run Tests'), findsOneWidget);
+    });
+
+    testWidgets('play button shows mismatch dialog instead of running',
+        (tester) async {
+      var ran = false;
+      registry.registerTest(
+        ScenarioTest(
+          id: 'login_t',
+          name: 'Login Test',
+          screen: 'Login Screen',
+          steps: [
+            ScenarioTestStep.custom(
+              id: 'c1',
+              description: 'Should not run',
+              action: (_) async => ran = true,
+            ),
+          ],
+        ),
+      );
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ScenarioTestDashboard(
+              registry: registry,
+              currentScreenName: 'Dashboard Screen',
+              onNavigateToScreen: (_) {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Login Screen'));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byKey(const ValueKey('run_single_login_t')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Switch Screen to Run Test'), findsOneWidget);
+      expect(ran, isFalse);
+    });
   });
 }

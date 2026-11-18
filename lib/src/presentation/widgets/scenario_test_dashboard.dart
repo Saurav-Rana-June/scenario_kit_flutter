@@ -160,6 +160,19 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
     return ScenarioKitBindings.resolveExecutionContext(context);
   }
 
+  bool get _isScreenMismatch {
+    final active = widget.currentScreenName;
+    final selected = _selectedScreen;
+    return selected != null && active != null && selected != active;
+  }
+
+  bool _isTestRunBlocked(ScenarioTest test) {
+    final active = widget.currentScreenName;
+    final target = (test.screen ?? _selectedScreen)?.trim();
+    if (active == null || target == null || target.isEmpty) return false;
+    return active != target;
+  }
+
   List<String> _getAvailableGroups() {
     final tests = _selectedScreen != null
         ? _registry.getTestsForScreen(_selectedScreen!)
@@ -177,6 +190,7 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
   }
 
   Future<void> _runSelectedTests(BuildContext context) async {
+    if (_isScreenMismatch) return;
     final filtered = _getFilteredItems();
     final toRun = filtered
         .where((t) => _selectedTestIds.contains(t.id))
@@ -198,6 +212,7 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
   }
 
   Future<void> _runAllTests(BuildContext context) async {
+    if (_isScreenMismatch) return;
     final filtered = _getFilteredItems();
     if (filtered.isEmpty) return;
 
@@ -248,7 +263,89 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
     Clipboard.setData(ClipboardData(text: html));
   }
 
+  void _handleTapRunSingleTest(BuildContext context, ScenarioTest test) {
+    final active = widget.currentScreenName;
+    final target = test.screen ?? _selectedScreen;
+
+    if (active != null &&
+        target != null &&
+        target.trim().isNotEmpty &&
+        active != target.trim()) {
+      _showMismatchDialog(context, targetScreen: target.trim());
+      return;
+    }
+
+    _runSingleTest(context, test);
+  }
+
+  void _showMismatchDialog(
+    BuildContext context, {
+    required String targetScreen,
+  }) {
+    final panelTheme = widget.theme ?? ScenarioPanelThemeData.dark();
+    final hasNavigation = widget.onNavigateToScreen != null;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: panelTheme.surfaceColor,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: panelTheme.borderColor),
+        ),
+        icon: const Icon(Icons.swap_horiz_rounded, color: Colors.amber, size: 36),
+        title: Text(
+          hasNavigation ? 'Switch Screen to Run Test' : 'Navigate to Run Test',
+          style: TextStyle(
+            color: panelTheme.textColor,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        content: Text(
+          hasNavigation
+              ? 'You are currently on "${widget.currentScreenName}". '
+                  'This test requires "$targetScreen" to be mounted.'
+              : 'You are currently on "${widget.currentScreenName}". '
+                  'Navigate to "$targetScreen" before running tests from this suite.',
+          style: TextStyle(
+            color: panelTheme.subtitleColor,
+            fontSize: 13,
+            height: 1.4,
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogCtx).pop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: panelTheme.subtitleColor),
+            ),
+          ),
+          if (hasNavigation)
+            ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: panelTheme.primaryColor,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
+              ),
+              icon: const Icon(Icons.arrow_forward_rounded, size: 16),
+              label: Text('Go to $targetScreen'),
+              onPressed: () {
+                Navigator.of(dialogCtx).pop();
+                widget.onClose?.call();
+                widget.onNavigateToScreen!(targetScreen);
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _runSingleTest(BuildContext context, ScenarioTest test) async {
+    if (_isTestRunBlocked(test)) return;
     final result = await _runner.runFunctionalityTest(
       test.id,
       context: _executionContext(context),
@@ -774,6 +871,40 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
     List<ScenarioTest> filteredTests,
     ScenarioPanelThemeData panelTheme,
   ) {
+    if (_isScreenMismatch) {
+      final selected = _selectedScreen!;
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: ElevatedButton.icon(
+                key: const ValueKey('go_to_screen_run_button'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.amber.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                icon: const Icon(Icons.arrow_forward_rounded, size: 18),
+                label: Text('Go to "$selected" to Run Tests'),
+                onPressed: widget.onNavigateToScreen != null
+                    ? () {
+                        widget.onClose?.call();
+                        widget.onNavigateToScreen!(selected);
+                      }
+                    : () {
+                        _showMismatchDialog(context, targetScreen: selected);
+                      },
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     final allSelected = filteredTests.isNotEmpty &&
         filteredTests.every((t) => _selectedTestIds.contains(t.id));
 
@@ -1150,7 +1281,9 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
                     icon: Icon(
                       Icons.play_arrow_rounded,
                       size: 20,
-                      color: panelTheme.primaryColor,
+                      color: _isTestRunBlocked(test)
+                          ? panelTheme.subtitleColor.withValues(alpha: 0.5)
+                          : panelTheme.primaryColor,
                     ),
                     style: IconButton.styleFrom(
                       backgroundColor:
@@ -1158,9 +1291,12 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
                       padding: const EdgeInsets.all(6),
                       minimumSize: const Size(32, 32),
                     ),
+                    tooltip: _isTestRunBlocked(test)
+                        ? 'Switch to ${test.screen} to run'
+                        : 'Run test',
                     onPressed: _runner.isRunning
                         ? null
-                        : () => _runSingleTest(context, test),
+                        : () => _handleTapRunSingleTest(context, test),
                   ),
                   const SizedBox(width: 4),
                   Icon(

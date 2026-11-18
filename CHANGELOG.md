@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Active screen awareness**: `ScenarioKit.screenName` and `onNavigateToScreen`; Test Mode auto-filters to the mounted screen, marks the active chip, and shows a mismatch warning with optional **Go to Screen** navigation.
+- Test Mode **execution guards**: block bulk run on screen mismatch; per-test play prompts navigation instead of failing assertions on the wrong widget tree.
 - `ScenarioScope.maybeActiveScreenNameOf` / `maybeNavigateToScreenOf` for host apps.
 
 ### Fixed
