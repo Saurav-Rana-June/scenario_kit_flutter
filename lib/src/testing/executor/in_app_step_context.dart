@@ -75,12 +75,10 @@ class InAppStepContext implements ScenarioStepContext {
     root.visitChildElements(visitor);
     if (match != null) return match;
 
-    if (_isAutomatedTestBinding) {
-      final appRoot = WidgetsBinding.instance.rootElement;
-      if (appRoot != null && appRoot != root) {
-        if (finder.matchesElement(appRoot)) return appRoot;
-        appRoot.visitChildElements(visitor);
-      }
+    final appRoot = WidgetsBinding.instance.rootElement;
+    if (appRoot != null && appRoot != root) {
+      if (finder.matchesElement(appRoot)) return appRoot;
+      appRoot.visitChildElements(visitor);
     }
     return match;
   }
@@ -101,7 +99,7 @@ class InAppStepContext implements ScenarioStepContext {
       root.visitChildElements(visitor);
     }
 
-    if (matches.isEmpty && _isAutomatedTestBinding) {
+    if (matches.isEmpty) {
       final appRoot = WidgetsBinding.instance.rootElement;
       if (appRoot != null) {
         if (finder.matchesElement(appRoot)) matches.add(appRoot);
@@ -245,6 +243,17 @@ class InAppStepContext implements ScenarioStepContext {
     }
 
     element.visitChildElements(visitor);
+    if (handled) return true;
+
+    // Also inspect ancestors if target is an inner child (e.g. Text inside button or InkWell)
+    element.visitAncestorElements((ancestor) {
+      if (_tryInvokeTap(ancestor.widget)) {
+        handled = true;
+        return false;
+      }
+      return true;
+    });
+
     return handled;
   }
 
