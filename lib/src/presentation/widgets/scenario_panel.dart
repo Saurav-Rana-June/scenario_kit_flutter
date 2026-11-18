@@ -76,11 +76,7 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
   }
 
   ScenarioPanelThemeData _resolveTheme(BuildContext context) {
-    if (widget.theme != null) return widget.theme!;
-    final isDark = Theme.of(context).brightness == Brightness.dark;
-    return isDark
-        ? ScenarioPanelThemeData.dark()
-        : ScenarioPanelThemeData.light();
+    return widget.theme ?? ScenarioPanelThemeData.dark();
   }
 
   List<Scenario> _filterScenarios(List<Scenario> all) {
@@ -215,83 +211,102 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
     final controller = widget.controller ?? ScenarioScope.of(context);
     final panelTheme = _resolveTheme(context);
 
+    final darkMaterialTheme = ThemeData(
+      brightness: Brightness.dark,
+      colorScheme: ColorScheme.dark(
+        primary: panelTheme.primaryColor,
+        surface: panelTheme.surfaceColor,
+        onSurface: panelTheme.textColor,
+      ),
+      scaffoldBackgroundColor: panelTheme.backgroundColor,
+      useMaterial3: true,
+    );
+
     if (_activeTab == _PanelTab.tests) {
       final testRegistry = widget.testRegistry ?? ScenarioTestRegistry.instance;
       final totalCount = testRegistry.totalTestCount;
-      return Material(
-        color: panelTheme.backgroundColor,
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (widget.showHeader) ...[
-              _buildDragHandle(panelTheme),
-              _buildHeader(context, controller, panelTheme, totalCount),
-            ],
-            Expanded(
-              child: ScenarioTestDashboard(
-                registry: widget.testRegistry,
-                theme: panelTheme,
-                onClose: widget.onClose,
-                executionContext: widget.testExecutionContext,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        final scenarios = controller.registry.scenarios;
-        final filtered = _filterScenarios(scenarios);
-        final groups = controller.registry.groups;
-
-        return Material(
+      return Theme(
+        data: darkMaterialTheme,
+        child: Material(
           color: panelTheme.backgroundColor,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               if (widget.showHeader) ...[
                 _buildDragHandle(panelTheme),
-                _buildHeader(context, controller, panelTheme, scenarios.length),
+                _buildHeader(context, controller, panelTheme, totalCount),
               ],
-              _buildSearchBar(panelTheme),
-              if (groups.isNotEmpty) _buildGroupFilters(groups, panelTheme),
-              Divider(
-                height: 1,
-                thickness: 1,
-                color: panelTheme.borderColor.withValues(alpha: 0.6),
-              ),
-              Flexible(
-                child: filtered.isEmpty
-                    ? _buildEmptyResults(panelTheme)
-                    : ListView.separated(
-                        shrinkWrap: true,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16.0,
-                          vertical: 12.0,
-                        ),
-                        itemCount: filtered.length,
-                        separatorBuilder: (_, __) => const SizedBox(height: 8),
-                        itemBuilder: (context, index) {
-                          final scenario = filtered[index];
-                          final isSelected = controller.isSelected(scenario);
-                          return _buildScenarioCard(
-                            context,
-                            scenario,
-                            isSelected,
-                            controller,
-                            panelTheme,
-                          );
-                        },
-                      ),
+              Expanded(
+                child: ScenarioTestDashboard(
+                  registry: widget.testRegistry,
+                  theme: panelTheme,
+                  onClose: widget.onClose,
+                  executionContext: widget.testExecutionContext,
+                ),
               ),
             ],
           ),
-        );
-      },
+        ),
+      );
+    }
+
+    return Theme(
+      data: darkMaterialTheme,
+      child: AnimatedBuilder(
+        animation: controller,
+        builder: (context, _) {
+          final scenarios = controller.registry.scenarios;
+          final filtered = _filterScenarios(scenarios);
+          final groups = controller.registry.groups;
+
+          return Material(
+            color: panelTheme.backgroundColor,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                if (widget.showHeader) ...[
+                  _buildDragHandle(panelTheme),
+                  _buildHeader(
+                      context, controller, panelTheme, scenarios.length),
+                ],
+                _buildSearchBar(panelTheme),
+                if (groups.isNotEmpty) _buildGroupFilters(groups, panelTheme),
+                Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: panelTheme.borderColor.withValues(alpha: 0.6),
+                ),
+                Flexible(
+                  child: filtered.isEmpty
+                      ? _buildEmptyResults(panelTheme)
+                      : ListView.separated(
+                          shrinkWrap: true,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16.0,
+                            vertical: 12.0,
+                          ),
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final scenario = filtered[index];
+                            final isSelected = controller.isSelected(scenario);
+                            return _buildScenarioCard(
+                              context,
+                              scenario,
+                              isSelected,
+                              controller,
+                              panelTheme,
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
