@@ -49,6 +49,7 @@ class ScenarioKit extends StatefulWidget {
     this.hideOverlayWhileTestsRun = true,
     this.screenName,
     this.onNavigateToScreen,
+    this.navigatorKey,
   }) : assert(
           child != null ||
               scenarios != null ||
@@ -106,6 +107,10 @@ class ScenarioKit extends StatefulWidget {
 
   /// Optional callback when the user chooses **Go to Screen** for another suite.
   final void Function(String screenName)? onNavigateToScreen;
+
+  /// Pass the same key as [MaterialApp.navigatorKey] when using [MaterialApp.builder]
+  /// so bottom sheets and dialogs always find a root [Overlay] (recommended on mobile).
+  final GlobalKey<NavigatorState>? navigatorKey;
 
   @override
   State<ScenarioKit> createState() => _ScenarioKitState();
@@ -301,6 +306,7 @@ class _ScenarioKitState extends State<ScenarioKit> {
         appContentKey: _appContentKey,
         screenshotService: _screenshotService,
         testsRunning: _testsRunning,
+        navigatorKey: widget.navigatorKey,
         child: body,
       ),
     );

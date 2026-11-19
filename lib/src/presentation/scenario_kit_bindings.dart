@@ -11,7 +11,12 @@ class ScenarioKitBindings extends InheritedWidget {
     required this.appContentKey,
     required this.screenshotService,
     required this.testsRunning,
+    this.navigatorKey,
   });
+
+  /// When set (usually the same key as [MaterialApp.navigatorKey]), modals use this
+  /// navigator so the panel works with nested routers and `MaterialApp.builder`.
+  final GlobalKey<NavigatorState>? navigatorKey;
 
   final GlobalKey screenshotBoundaryKey;
 
@@ -41,6 +46,7 @@ class ScenarioKitBindings extends InheritedWidget {
   bool updateShouldNotify(covariant ScenarioKitBindings oldWidget) {
     return screenshotBoundaryKey != oldWidget.screenshotBoundaryKey ||
         appContentKey != oldWidget.appContentKey ||
-        screenshotService != oldWidget.screenshotService;
+        screenshotService != oldWidget.screenshotService ||
+        navigatorKey != oldWidget.navigatorKey;
   }
 }

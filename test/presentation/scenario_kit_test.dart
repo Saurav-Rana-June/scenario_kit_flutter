@@ -23,6 +23,7 @@ void main() {
 
       expect(find.text('Scenario Content Here'), findsOneWidget);
       expect(find.byType(ScenarioFloatingTrigger), findsOneWidget);
+      expect(find.byType(SafeArea), findsWidgets);
     });
 
     testWidgets('renders wrapped child when child is provided', (tester) async {

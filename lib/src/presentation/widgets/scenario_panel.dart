@@ -8,6 +8,7 @@ import '../../testing/reporting/html_report_exporter.dart';
 import '../../testing/reporting/json_report_exporter.dart';
 import '../../testing/reporting/scenario_report_store.dart';
 import '../../testing/reporting/scenario_test_report.dart';
+import '../../utils/scenario_panel_host.dart';
 import '../scenario_scope.dart';
 import '../theme/scenario_panel_theme.dart';
 import 'scenario_report_viewer.dart';
@@ -135,7 +136,8 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
     ScenarioPanelThemeData panelTheme,
   ) {
     showDialog<void>(
-      context: context,
+      context: ScenarioPanelHost.modalContext(context),
+      useRootNavigator: true,
       builder: (ctx) {
         return AlertDialog(
           backgroundColor: panelTheme.surfaceColor,
@@ -254,7 +256,8 @@ class _ScenarioPanelState extends State<ScenarioPanel> {
     );
 
     showModalBottomSheet<void>(
-      context: context,
+      context: ScenarioPanelHost.modalContext(context),
+      useRootNavigator: true,
       backgroundColor: panelTheme.surfaceColor,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),

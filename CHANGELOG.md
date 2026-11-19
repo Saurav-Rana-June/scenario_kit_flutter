@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.4] - 2026-11-19
+
+### Fixed
+- Mobile integration: resolve root overlay via `ScenarioPanelHost` and `useRootNavigator` for panels/dialogs (fixes **No Overlay found** with nested navigators).
+- Floating trigger pill respects system navigation insets (`SafeArea(top: false)`).
+
+### Added
+- `ScenarioKit.navigatorKey` — pass the same key as `MaterialApp.navigatorKey` when using `MaterialApp.builder`.
+
+### Changed
+- README: step-by-step integration guide for mobile (`MaterialApp.builder`, content modes, troubleshooting).
+- Example app wires `navigatorKey` on `MaterialApp` and `ScenarioKit`.
+
 ## [0.2.3] - 2026-11-18
 
 ### Changed

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:scenario_kit_flutter/scenario_kit_flutter.dart';
 
+final GlobalKey<NavigatorState> exampleNavigatorKey = GlobalKey<NavigatorState>();
+
 void main() {
   registerExampleFunctionalTests();
   runApp(const ScenarioKitExampleApp());
@@ -179,6 +181,7 @@ class ScenarioKitExampleApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
+      navigatorKey: exampleNavigatorKey,
       title: 'ScenarioKit Showcase',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
@@ -197,6 +200,7 @@ class ScenarioKitExampleApp extends StatelessWidget {
       ),
       themeMode: ThemeMode.system,
       home: ScenarioKit(
+        navigatorKey: exampleNavigatorKey,
         screenName: 'Product Catalog',
         scenarios: [
           // 1. Success State (Default)

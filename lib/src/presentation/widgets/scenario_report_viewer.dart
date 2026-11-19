@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../utils/scenario_panel_host.dart';
 import '../../testing/assertions/assertion_result.dart';
 import '../../testing/executor/test_execution_result.dart';
 import '../../testing/reporting/scenario_test_report.dart';
@@ -28,7 +29,8 @@ class ScenarioReportViewerDialog extends StatelessWidget {
     ScenarioPanelThemeData? theme,
   }) {
     return showDialog(
-      context: context,
+      context: ScenarioPanelHost.modalContext(context),
+      useRootNavigator: true,
       builder: (ctx) => ScenarioReportViewerDialog(
         report: report,
         theme: theme,
@@ -625,7 +627,8 @@ class ScenarioReportViewerDialog extends StatelessWidget {
     return InkWell(
       onTap: () {
         showDialog<void>(
-          context: context,
+          context: ScenarioPanelHost.modalContext(context),
+          useRootNavigator: true,
           builder: (ctx) => Dialog(
             backgroundColor: Colors.transparent,
             insetPadding: const EdgeInsets.all(16),

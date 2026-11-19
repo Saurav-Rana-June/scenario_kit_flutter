@@ -8,6 +8,7 @@ import '../../testing/reporting/scenario_report_store.dart';
 import '../../testing/reporting/scenario_test_report.dart';
 import '../../testing/runner/screen_execution_summary.dart';
 import '../../testing/steps/step_execution_result.dart';
+import '../../utils/scenario_panel_host.dart';
 import '../theme/scenario_panel_theme.dart';
 import 'scenario_report_viewer.dart';
 
@@ -742,7 +743,8 @@ class _ScenarioReportsTabState extends State<ScenarioReportsTab> {
         InkWell(
           onTap: () {
             showDialog<void>(
-              context: context,
+              context: ScenarioPanelHost.modalContext(context),
+              useRootNavigator: true,
               builder: (ctx) => Dialog(
                 backgroundColor: Colors.transparent,
                 insetPadding: const EdgeInsets.all(16),

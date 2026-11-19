@@ -10,6 +10,7 @@ import '../../testing/reporting/scenario_test_report.dart';
 import '../../testing/runner/execution_mode.dart';
 import '../../testing/runner/scenario_test_runner.dart';
 import '../../testing/runner/screen_execution_summary.dart';
+import '../../utils/scenario_panel_host.dart';
 import '../scenario_kit_bindings.dart';
 import '../theme/scenario_panel_theme.dart';
 import 'scenario_report_viewer.dart';
@@ -274,7 +275,8 @@ class _ScenarioTestDashboardState extends State<ScenarioTestDashboard> {
     final hasNavigation = widget.onNavigateToScreen != null;
 
     showDialog<void>(
-      context: context,
+      context: ScenarioPanelHost.modalContext(context),
+      useRootNavigator: true,
       builder: (dialogCtx) => AlertDialog(
         backgroundColor: panelTheme.surfaceColor,
         shape: RoundedRectangleBorder(

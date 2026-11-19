@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/scenario_controller.dart';
 import '../../testing/registry/scenario_test_registry.dart';
+import '../../utils/scenario_panel_host.dart';
 import '../scenario_scope.dart';
 import '../theme/scenario_panel_theme.dart';
 import 'scenario_panel.dart';
@@ -58,8 +59,10 @@ class _ScenarioFloatingTriggerState extends State<ScenarioFloatingTrigger> {
 
   void _openPanel(BuildContext context, ScenarioController controller) {
     final panelTheme = _resolveTheme(context);
+    final modalContext = ScenarioPanelHost.modalContext(context);
     showModalBottomSheet<void>(
-      context: context,
+      context: modalContext,
+      useRootNavigator: true,
       backgroundColor: Colors.transparent,
       isScrollControlled: true,
       isDismissible: false,
@@ -77,9 +80,9 @@ class _ScenarioFloatingTriggerState extends State<ScenarioFloatingTrigger> {
             ),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: panelTheme.panelElevation * 2,
-                offset: const Offset(0, -6),
+                color: Colors.black.withValues(alpha: 0.16),
+                blurRadius: 50,
+                offset: const Offset(0, -20),
               ),
             ],
           ),
@@ -225,11 +228,14 @@ class _ScenarioFloatingTriggerState extends State<ScenarioFloatingTrigger> {
           );
         }
 
-        return Align(
-          alignment: widget.initialAlignment,
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: triggerWidget,
+        return SafeArea(
+          top: false,
+          child: Align(
+            alignment: widget.initialAlignment,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: triggerWidget,
+            ),
           ),
         );
       },

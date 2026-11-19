@@ -115,7 +115,7 @@ Add `scenario_kit_flutter` to your `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  scenario_kit_flutter: ^0.2.3
+  scenario_kit_flutter: ^0.2.4
 ```
 
 Then run:
@@ -126,15 +126,36 @@ flutter pub get
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Integration guide
 
-Wrap your screen or application with `ScenarioKit`:
+ScenarioKit needs a **Material** navigator **Overlay** to open the bottom sheet (tap the floating pill). On mobile, use **`MaterialApp.builder`** so the kit wraps every route and the pill sits above system navigation (SafeArea bottom inset).
+
+### Step 1 — Pick a content mode
+
+| Mode | When to use | What you see |
+|------|-------------|--------------|
+| **Preview** (`home: ScenarioKit(scenarios: …)` only) | Storybook / design QA | [ScenarioViewer] swaps scenario `builder` UIs |
+| **Overlay** (`MaterialApp.builder` + `child`) | **Production apps** | Your real screen stays visible; scenarios drive mocks/adapters |
+| **Hybrid** | Demo apps | Production widget registered as a scenario + full viewer |
+
+Set overlay explicitly when you pass both `child` and `scenarios`:
+
+```dart
+contentMode: ScenarioKitContentMode.overlay,
+```
+
+### Step 2 — Recommended setup (mobile / nested navigation)
+
+Use one root `navigatorKey`, wrap routes in `MaterialApp.builder`, and pass the same key to `ScenarioKit`:
 
 ```dart
 import 'package:flutter/material.dart';
 import 'package:scenario_kit_flutter/scenario_kit_flutter.dart';
 
+final rootNavigatorKey = GlobalKey<NavigatorState>();
+
 void main() {
+  registerMyTests(); // optional: ScenarioTestRegistry suites
   runApp(const MyApp());
 }
 
@@ -144,60 +165,84 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: ScenarioKit(
-        scenarios: [
-          // 1. Success State (Default)
-          Scenario.success(
-            id: 'catalog_success',
-            name: 'Success (5 Items)',
-            description: 'Populated product catalog view',
-            group: 'Catalog',
-            isDefault: true,
-            builder: (context) => const ProductListView(products: mockProducts),
-          ),
-
-          // 2. Loading State
-          Scenario.loading(
-            id: 'catalog_loading',
-            name: 'Loading State',
-            group: 'Catalog',
-            builder: (context) => const ProductLoadingSkeleton(),
-          ),
-
-          // 3. Empty State
-          Scenario.empty(
-            id: 'catalog_empty',
-            name: 'Empty State',
-            group: 'Catalog',
-            builder: (context) => const ProductEmptyView(),
-          ),
-
-          // 4. Server Error State
-          Scenario.error(
-            id: 'catalog_error',
-            name: 'Error 500',
-            group: 'Network',
-            builder: (context) => const ProductErrorView(message: 'Server Error'),
-          ),
-
-          // 5. Offline State
-          Scenario.offline(
-            id: 'catalog_offline',
-            name: 'Offline Mode',
-            group: 'Network',
-            builder: (context) => const ProductListView(
-              products: cachedProducts,
-              isOffline: true,
-            ),
-          ),
-        ],
-      ),
+      navigatorKey: rootNavigatorKey,
+      debugShowCheckedModeBanner: false,
+      builder: (context, child) {
+        return ScenarioKit(
+          navigatorKey: rootNavigatorKey,
+          contentMode: ScenarioKitContentMode.overlay,
+          screenName: 'Product Catalog',
+          scenarios: catalogScenarios,
+          onNavigateToScreen: (name) {
+            // Optional: map Test Mode "Go to Screen" to your router
+          },
+          child: child,
+        );
+      },
+      home: const ProductCatalogScreen(),
     );
   }
 }
+
+final catalogScenarios = <Scenario>[
+  Scenario.success(
+    id: 'catalog_success',
+    name: 'Success',
+    group: 'Catalog',
+    isDefault: true,
+    builder: (context) => const ProductCatalogScreen(),
+  ),
+  Scenario.loading(
+    id: 'catalog_loading',
+    name: 'Loading',
+    group: 'Catalog',
+    builder: (context) => const ProductLoadingSkeleton(),
+  ),
+  // empty / error / offline ...
+];
 ```
 
-When you launch your app, a draggable floating pill (`⚡ Scenario: Success`) appears. Tap it to search, inspect metadata, and switch scenarios instantly!
+- The floating pill respects **system navigation bars** (`SafeArea`, top disabled).
+- Bottom sheets use the **root navigator** (`useRootNavigator: true`) so nested `Navigator` widgets do not trigger **No Overlay found**.
+- In **overlay** mode, wire scenario changes into your state (Bloc/Riverpod/setState) via [`ScenarioStateBuilder`](#with-scenariostatebuilder-universal-reactive-builder) or [`ScenarioStateAdapter`](#with-bloc--cubit).
+
+### Step 3 — Preview-only quick start (no production `child`)
+
+For a standalone scenario switcher (no live app underneath):
+
+```dart
+MaterialApp(
+  home: ScenarioKit(
+    scenarios: catalogScenarios,
+  ),
+)
+```
+
+Tap the pill → search scenarios → **Apply scenario** or **Apply and preview**.
+
+### Step 4 — Register tests (optional)
+
+```dart
+void registerMyTests() {
+  ScenarioTestRegistry.instance.registerSuite(
+    ScenarioTestSuite(
+      screenName: 'Product Catalog', // must match ScenarioKit.screenName
+      tests: [ /* ScenarioTest(…) */ ],
+    ),
+  );
+}
+```
+
+### Troubleshooting
+
+| Issue | Fix |
+|-------|-----|
+| **`No Overlay widget found`** | Put `ScenarioKit` **inside** `MaterialApp.builder` (not above `MaterialApp`). Pass `navigatorKey` to both `MaterialApp` and `ScenarioKit`. |
+| Pill under Android nav buttons | Fixed by default (`SafeArea(top: false)` on the trigger). Avoid extra bottom `Padding` on the root `Scaffold`. |
+| Tests run against the sheet, not the app | Use `MaterialApp.builder` so `ScenarioKit` wraps `child`; do not open the kit as an isolated `home` route without `child`. |
+| Release build shows debug UI | Keep `enabled: kDebugMode` (default). |
+
+See the [`example/`](example/) app for a full catalog + Test Mode demo.
 
 ---
 
