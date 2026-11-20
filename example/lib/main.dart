@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:scenario_kit_flutter/scenario_kit_flutter.dart';
 
+import 'app_shell.dart';
+import 'catalog_screen.dart';
+import 'models/user_profile.dart';
+import 'profile_screen.dart';
+
 final GlobalKey<NavigatorState> exampleNavigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
@@ -91,92 +96,232 @@ void registerExampleFunctionalTests([ScenarioTestRegistry? registry]) {
       ],
     ),
   );
+
+  target.registerSuite(
+    ScenarioTestSuite(
+      screenName: 'User Profile',
+      tests: [
+        ScenarioTest(
+          name: 'Profile header and loyalty stats',
+          group: 'Profile Content',
+          description: 'Verifies signed-in user header and stat cards',
+          requiredScenarioId: 'profile_complete',
+          steps: [
+            AssertExistsStep(finder: StepFinder.byText('My Profile')),
+            AssertExistsStep(finder: StepFinder.byText('Jordan Lee')),
+            AssertExistsStep(finder: StepFinder.byText('Gold Member')),
+            AssertExistsStep(finder: StepFinder.byText('1840')),
+          ],
+        ),
+        ScenarioTest(
+          name: 'Email verification banner',
+          group: 'Verification',
+          description: 'Shows resend action when email is not verified',
+          requiredScenarioId: 'profile_unverified',
+          steps: [
+            AssertExistsStep(finder: StepFinder.byText('Verify your email')),
+            AssertExistsStep(finder: StepFinder.byText('Resend email')),
+          ],
+        ),
+        ScenarioTest(
+          name: 'Guest sign-in prompt',
+          group: 'Guest Mode',
+          description: 'Guest scenario shows sign-in call to action',
+          requiredScenarioId: 'profile_guest',
+          steps: [
+            AssertExistsStep(finder: StepFinder.byText('Sign in to GearStore')),
+            AssertExistsStep(finder: StepFinder.byText('Sign in')),
+          ],
+        ),
+      ],
+    ),
+  );
 }
 
-/// Example Product model.
-class Product {
-  const Product({
-    required this.id,
-    required this.name,
-    required this.price,
-    required this.rating,
-    required this.category,
-    this.inStock = true,
-  });
-
-  final String id;
-  final String name;
-  final double price;
-  final double rating;
-  final String category;
-  final bool inStock;
-}
-
-// ---------------------------------------------------------------------------
-// Mock Datasets
-// ---------------------------------------------------------------------------
-
-const mockSuccessProducts = <Product>[
-  Product(
-    id: 'p1',
-    name: 'Wireless Noise-Canceling Headphones',
-    price: 299.99,
-    rating: 4.8,
-    category: 'Audio',
-  ),
-  Product(
-    id: 'p2',
-    name: 'Mechanical Gaming Keyboard',
-    price: 149.50,
-    rating: 4.6,
-    category: 'Accessories',
-  ),
-  Product(
-    id: 'p3',
-    name: 'Ultra-Wide 4K Gaming Monitor',
-    price: 689.00,
-    rating: 4.9,
-    category: 'Displays',
-  ),
-  Product(
-    id: 'p4',
-    name: 'Ergonomic Vertical Mouse',
-    price: 79.99,
-    rating: 4.4,
-    category: 'Accessories',
-  ),
-  Product(
-    id: 'p5',
-    name: 'Thunderbolt 4 Docking Station',
-    price: 219.00,
-    rating: 4.7,
-    category: 'Hubs & Power',
-  ),
-];
-
-const mockOfflineProducts = <Product>[
-  Product(
-    id: 'p1',
-    name: 'Wireless Noise-Canceling Headphones',
-    price: 299.99,
-    rating: 4.8,
-    category: 'Audio (Cached)',
-  ),
-  Product(
-    id: 'p2',
-    name: 'Mechanical Gaming Keyboard',
-    price: 149.50,
-    rating: 4.6,
-    category: 'Accessories (Cached)',
-  ),
-];
-
-// ---------------------------------------------------------------------------
-// Application Root & Scenarios Definition
-// ---------------------------------------------------------------------------
-
-class ScenarioKitExampleApp extends StatelessWidget {
+class ScenarioKitExampleApp extends StatefulWidget {
   const ScenarioKitExampleApp({super.key});
+
+  @override
+  State<ScenarioKitExampleApp> createState() => _ScenarioKitExampleAppState();
+}
+
+class _ScenarioKitExampleAppState extends State<ScenarioKitExampleApp> {
+  String _screenName = 'Product Catalog';
+  int _tabIndex = 0;
+
+  void _onNavigateToScreen(String screenName) {
+    setState(() {
+      _screenName = screenName;
+      _tabIndex = screenName == 'User Profile' ? 1 : 0;
+    });
+  }
+
+  void _onTabChanged(int index) {
+    setState(() {
+      _tabIndex = index;
+      _screenName = index == 0 ? 'Product Catalog' : 'User Profile';
+    });
+  }
+
+  ExampleAppShell _shell({
+    required int initialTab,
+    List<Product>? products,
+    bool catalogIsOffline = false,
+    bool catalogIsLoadingMore = false,
+    Widget? catalogPage,
+    UserProfile? profile,
+    List<ProfileOrder>? profileOrders,
+    bool profileShowVerification = false,
+    bool profileIsLoading = false,
+  }) {
+    return ExampleAppShell(
+      initialTabIndex: initialTab,
+      selectedTabIndex: _tabIndex,
+      onTabChanged: _onTabChanged,
+      catalogProducts: products ?? mockSuccessProducts,
+      catalogIsOffline: catalogIsOffline,
+      catalogIsLoadingMore: catalogIsLoadingMore,
+      catalogPage: catalogPage,
+      profile: profile ?? mockProfileComplete,
+      profileOrders: profileOrders ?? mockProfileOrders,
+      profileShowVerification: profileShowVerification,
+      profileIsLoading: profileIsLoading,
+    );
+  }
+
+  List<Scenario> get _scenarios => [
+        Scenario.success(
+          id: 'catalog_success',
+          name: 'Success (5 Products)',
+          description: 'Standard product catalog populated with mock items',
+          group: 'Catalog States',
+          isDefault: true,
+          metadata: const {
+            'total_items': 5,
+            'latency_ms': 240,
+            'source': 'api.store.com/v1/products',
+          },
+          builder: (context) => _shell(initialTab: 0),
+        ),
+        Scenario.loading(
+          id: 'catalog_loading',
+          name: 'Loading State',
+          description: 'Skeleton placeholder shimmer during initial API call',
+          group: 'Catalog States',
+          metadata: const {'simulated_delay': Duration(milliseconds: 1500)},
+          builder: (context) => _shell(
+            initialTab: 0,
+            catalogPage: const ProductLoadingView(),
+          ),
+        ),
+        Scenario.empty(
+          id: 'catalog_empty',
+          name: 'Empty State',
+          description:
+              'Zero items returned matching search or category filters',
+          group: 'Catalog States',
+          metadata: const {
+            'search_query': 'Mechanical Keyboard',
+            'results': 0,
+          },
+          builder: (context) => _shell(
+            initialTab: 0,
+            catalogPage: const ProductEmptyView(),
+          ),
+        ),
+        Scenario.error(
+          id: 'network_error_500',
+          name: 'Server Error (500)',
+          description: 'API returned Internal Server Error with retry action',
+          group: 'Network Conditions',
+          metadata: const {
+            'status_code': 500,
+            'error_code': 'ERR_INTERNAL_SERVER',
+          },
+          builder: (context) => _shell(
+            initialTab: 0,
+            catalogPage: const ProductErrorView(
+              errorCode: 500,
+              errorMessage:
+                  'Unable to reach inventory servers. Please try again.',
+            ),
+          ),
+        ),
+        Scenario.offline(
+          id: 'network_offline',
+          name: 'Offline Cached Mode',
+          description:
+              'Device is offline; displaying locally cached items and warning banner',
+          group: 'Network Conditions',
+          metadata: const {'cached_at': '10 mins ago', 'cached_items': 2},
+          builder: (context) => _shell(
+            initialTab: 0,
+            products: mockOfflineProducts,
+            catalogIsOffline: true,
+          ),
+        ),
+        Scenario.paginationLoading(
+          id: 'catalog_pagination',
+          name: 'Pagination Loading',
+          description: 'User scrolls to bottom; page 2 is actively fetching',
+          group: 'Catalog States',
+          metadata: const {'current_page': 1, 'next_page': 2},
+          builder: (context) => _shell(
+            initialTab: 0,
+            products: mockOfflineProducts,
+            catalogIsLoadingMore: true,
+          ),
+        ),
+        Scenario.success(
+          id: 'profile_complete',
+          name: 'Profile (Signed In)',
+          description: 'Full account with orders, preferences, and stats',
+          group: 'Profile States',
+          isDefault: false,
+          metadata: const {
+            'user_id': 'user_42',
+            'tier': 'gold',
+            'orders': 24,
+          },
+          builder: (context) => _shell(
+            initialTab: 1,
+            profile: mockProfileComplete,
+          ),
+        ),
+        Scenario.loading(
+          id: 'profile_loading',
+          name: 'Profile Loading',
+          description: 'Skeleton state while account API loads',
+          group: 'Profile States',
+          builder: (context) => _shell(
+            initialTab: 1,
+            profileIsLoading: true,
+          ),
+        ),
+        Scenario(
+          id: 'profile_unverified',
+          name: 'Email Not Verified',
+          description: 'Signed-in user with verification banner',
+          group: 'Profile States',
+          metadata: const {'email_verified': false},
+          builder: (context) => _shell(
+            initialTab: 1,
+            profile: mockProfileUnverified,
+            profileShowVerification: true,
+          ),
+        ),
+        Scenario.empty(
+          id: 'profile_guest',
+          name: 'Guest (Signed Out)',
+          description: 'Browse-only profile with sign-in prompt',
+          group: 'Profile States',
+          builder: (context) => _shell(
+            initialTab: 1,
+            profile: mockProfileGuest,
+            profileOrders: const [],
+          ),
+        ),
+      ];
 
   @override
   Widget build(BuildContext context) {
@@ -201,428 +346,9 @@ class ScenarioKitExampleApp extends StatelessWidget {
       themeMode: ThemeMode.system,
       home: ScenarioKit(
         navigatorKey: exampleNavigatorKey,
-        screenName: 'Product Catalog',
-        scenarios: [
-          // 1. Success State (Default)
-          Scenario.success(
-            id: 'catalog_success',
-            name: 'Success (5 Products)',
-            description: 'Standard product catalog populated with mock items',
-            group: 'Catalog States',
-            isDefault: true,
-            metadata: const {
-              'total_items': 5,
-              'latency_ms': 240,
-              'source': 'api.store.com/v1/products',
-            },
-            builder: (context) =>
-                const ProductCatalogScreen(products: mockSuccessProducts),
-          ),
-
-          // 2. Loading State
-          Scenario.loading(
-            id: 'catalog_loading',
-            name: 'Loading State',
-            description: 'Skeleton placeholder shimmer during initial API call',
-            group: 'Catalog States',
-            metadata: const {'simulated_delay': Duration(milliseconds: 1500)},
-            builder: (context) => const ProductLoadingView(),
-          ),
-
-          // 3. Empty State
-          Scenario.empty(
-            id: 'catalog_empty',
-            name: 'Empty State',
-            description:
-                'Zero items returned matching search or category filters',
-            group: 'Catalog States',
-            metadata: const {
-              'search_query': 'Mechanical Keyboard',
-              'results': 0,
-            },
-            builder: (context) => const ProductEmptyView(),
-          ),
-
-          // 4. Server Error State
-          Scenario.error(
-            id: 'network_error_500',
-            name: 'Server Error (500)',
-            description: 'API returned Internal Server Error with retry action',
-            group: 'Network Conditions',
-            metadata: const {
-              'status_code': 500,
-              'error_code': 'ERR_INTERNAL_SERVER',
-            },
-            builder: (context) => const ProductErrorView(
-              errorCode: 500,
-              errorMessage:
-                  'Unable to reach inventory servers. Please try again.',
-            ),
-          ),
-
-          // 5. Offline State
-          Scenario.offline(
-            id: 'network_offline',
-            name: 'Offline Cached Mode',
-            description:
-                'Device is offline; displaying locally cached items and warning banner',
-            group: 'Network Conditions',
-            metadata: const {'cached_at': '10 mins ago', 'cached_items': 2},
-            builder: (context) => const ProductCatalogScreen(
-              products: mockOfflineProducts,
-              isOffline: true,
-            ),
-          ),
-
-          // 6. Pagination Loading State
-          Scenario.paginationLoading(
-            id: 'catalog_pagination',
-            name: 'Pagination Loading',
-            description: 'User scrolls to bottom; page 2 is actively fetching',
-            group: 'Catalog States',
-            metadata: const {'current_page': 1, 'next_page': 2},
-            builder: (context) => const ProductCatalogScreen(
-              products: mockOfflineProducts,
-              isLoadingMore: true,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Screen Views
-// ---------------------------------------------------------------------------
-
-class ProductCatalogScreen extends StatelessWidget {
-  const ProductCatalogScreen({
-    super.key,
-    required this.products,
-    this.isOffline = false,
-    this.isLoadingMore = false,
-  });
-
-  final List<Product> products;
-  final bool isOffline;
-  final bool isLoadingMore;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('GearStore'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.shopping_bag_outlined),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          if (isOffline)
-            Container(
-              width: double.infinity,
-              color: Colors.amber.shade700,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: const Row(
-                children: [
-                  Icon(Icons.wifi_off_rounded, color: Colors.white, size: 18),
-                  SizedBox(width: 8),
-                  Text(
-                    'You are offline. Showing cached catalog.',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          Expanded(
-            child: ListView.separated(
-              padding: const EdgeInsets.all(16),
-              itemCount: products.length + (isLoadingMore ? 1 : 0),
-              separatorBuilder: (_, __) => const SizedBox(height: 12),
-              itemBuilder: (context, index) {
-                if (index == products.length) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 20),
-                    child: Center(child: CircularProgressIndicator.adaptive()),
-                  );
-                }
-                final product = products[index];
-                return ProductCard(product: product);
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class ProductCard extends StatelessWidget {
-  const ProductCard({super.key, required this.product});
-
-  final Product product;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Card(
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(14),
-        side: BorderSide(color: theme.colorScheme.outlineVariant),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(14),
-        child: Row(
-          children: [
-            Container(
-              width: 60,
-              height: 60,
-              decoration: BoxDecoration(
-                color: theme.colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(
-                Icons.devices_rounded,
-                color: theme.colorScheme.onPrimaryContainer,
-              ),
-            ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    product.name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.star_rounded,
-                        size: 16,
-                        color: Colors.amber.shade700,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${product.rating}',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        product.category,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.outline,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '\$${product.price.toStringAsFixed(2)}',
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: theme.colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class ProductLoadingView extends StatelessWidget {
-  const ProductLoadingView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(title: const Text('GearStore')),
-      body: ListView.separated(
-        padding: const EdgeInsets.all(16),
-        itemCount: 4,
-        separatorBuilder: (_, __) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          return Card(
-            elevation: 0,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
-              side: BorderSide(color: theme.colorScheme.outlineVariant),
-            ),
-            child: Padding(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          width: 100,
-                          height: 12,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Container(
-                          width: 60,
-                          height: 14,
-                          decoration: BoxDecoration(
-                            color: theme.colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
-}
-
-class ProductEmptyView extends StatelessWidget {
-  const ProductEmptyView({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(title: const Text('GearStore')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.search_off_rounded,
-                size: 64,
-                color: theme.colorScheme.outline,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'No Products Found',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'We could not find any products matching your filters.',
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.outline,
-                ),
-              ),
-              const SizedBox(height: 20),
-              FilledButton.tonal(
-                onPressed: () {},
-                child: const Text('Reset Filters'),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class ProductErrorView extends StatelessWidget {
-  const ProductErrorView({
-    super.key,
-    required this.errorCode,
-    required this.errorMessage,
-  });
-
-  final int errorCode;
-  final String errorMessage;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return Scaffold(
-      appBar: AppBar(title: const Text('GearStore')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(32),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.error_outline_rounded,
-                size: 64,
-                color: theme.colorScheme.error,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                'Error $errorCode',
-                style: theme.textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.error,
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                errorMessage,
-                textAlign: TextAlign.center,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: theme.colorScheme.outline,
-                ),
-              ),
-              const SizedBox(height: 20),
-              FilledButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.refresh_rounded),
-                label: const Text('Retry Connection'),
-              ),
-            ],
-          ),
-        ),
+        screenName: _screenName,
+        onNavigateToScreen: _onNavigateToScreen,
+        scenarios: _scenarios,
       ),
     );
   }

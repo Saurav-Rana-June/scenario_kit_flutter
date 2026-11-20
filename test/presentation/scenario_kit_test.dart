@@ -98,8 +98,7 @@ void main() {
       expect(find.byType(ScenarioPanel), findsOneWidget);
       expect(find.text('Screen B'), findsOneWidget);
 
-      // Tap Screen B to switch
-      await tester.tap(find.text('Screen B'));
+      await tester.tap(find.text('Apply scenario').last);
       await tester.pumpAndSettle();
 
       // Close sheet

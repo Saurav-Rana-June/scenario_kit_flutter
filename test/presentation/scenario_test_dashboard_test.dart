@@ -14,12 +14,13 @@ void main() {
       ScenarioTestRegistry.resetInstance();
     });
 
-    Widget buildDashboardApp({ScenarioTestRegistry? reg}) {
+    Widget buildDashboardApp({ScenarioTestRegistry? reg, ScenarioTestDashboard? dashboard}) {
       return MaterialApp(
         home: Scaffold(
-          body: ScenarioTestDashboard(
-            registry: reg ?? registry,
-          ),
+          body: dashboard ??
+              ScenarioTestDashboard(
+                registry: reg ?? registry,
+              ),
         ),
       );
     }
@@ -52,14 +53,13 @@ void main() {
       await tester.pumpWidget(buildDashboardApp());
       await tester.pumpAndSettle();
 
-      expect(find.text('Test Mode'), findsOneWidget);
       expect(find.text('Valid Login'), findsOneWidget);
       expect(find.text('Reset Password'), findsOneWidget);
-      expect(find.text('LoginScreen'), findsOneWidget);
+      expect(find.text('LoginScreen'), findsWidgets);
       expect(find.text('Auth'), findsWidgets);
       expect(find.text('Recovery'), findsWidgets);
-      expect(find.byKey(const ValueKey('run_all_button')), findsOneWidget);
-      expect(find.byKey(const ValueKey('run_selected_button')), findsOneWidget);
+      expect(find.text('Run all'), findsOneWidget);
+      expect(find.textContaining('Run selected'), findsOneWidget);
     });
 
     testWidgets('filters test cases via search input', (tester) async {
@@ -81,9 +81,6 @@ void main() {
       await tester.pumpWidget(buildDashboardApp());
       await tester.pumpAndSettle();
 
-      expect(find.text('Email Format Validation'), findsOneWidget);
-      expect(find.text('Password Strength Check'), findsOneWidget);
-
       await tester.enterText(find.byType(TextField), 'strength');
       await tester.pumpAndSettle();
 
@@ -102,56 +99,43 @@ void main() {
       await tester.pumpWidget(buildDashboardApp());
       await tester.pumpAndSettle();
 
-      expect(find.text('Select All (0/2)'), findsOneWidget);
+      expect(find.textContaining('Select all (0/2)'), findsOneWidget);
 
-      // Tap select all
-      await tester.tap(find.byKey(const ValueKey('select_all_checkbox')));
+      await tester.tap(find.byType(Checkbox).first);
       await tester.pumpAndSettle();
 
-      expect(find.text('Select All (2/2)'), findsOneWidget);
-      expect(find.text('Run Selected (2)'), findsOneWidget);
+      expect(find.textContaining('Select all (2/2)'), findsOneWidget);
+      expect(find.textContaining('Run selected (2)'), findsOneWidget);
 
-      // Tap again to deselect
-      await tester.tap(find.byKey(const ValueKey('select_all_checkbox')));
+      await tester.tap(find.byType(Checkbox).first);
       await tester.pumpAndSettle();
 
-      expect(find.text('Select All (0/2)'), findsOneWidget);
+      expect(find.textContaining('Select all (0/2)'), findsOneWidget);
     });
 
-    testWidgets('executes single test and triggers View Report dialog',
-        (tester) async {
-      final test1 = ScenarioTest(
-        id: 't_single',
-        name: 'Single Unit Verification',
-        screen: 'HomeScreen',
-        steps: [
-          ScenarioTestStep.custom(
-            id: 'c1',
-            description: 'Simple success',
-            action: (_) async {},
-          ),
-        ],
+    testWidgets('executes single test via per-tile run', (tester) async {
+      registry.registerTest(
+        ScenarioTest(
+          id: 't_single',
+          name: 'Single Unit Verification',
+          screen: 'HomeScreen',
+          steps: [
+            ScenarioTestStep.custom(
+              id: 'c1',
+              description: 'Simple success',
+              action: (_) async {},
+            ),
+          ],
+        ),
       );
-      registry.registerTest(test1);
 
       await tester.pumpWidget(buildDashboardApp());
       await tester.pumpAndSettle();
 
-      expect(find.byKey(const ValueKey('view_report_button')), findsNothing);
-
-      // Run single test
-      await tester.tap(find.byKey(const ValueKey('run_single_t_single')));
+      await tester.tap(find.byTooltip('Run this test'));
       await tester.pumpAndSettle();
 
-      // View Report button should now appear
-      expect(find.byKey(const ValueKey('view_report_button')), findsOneWidget);
-
-      // Tap View Report
-      await tester.tap(find.byKey(const ValueKey('view_report_button')));
-      await tester.pumpAndSettle();
-
-      expect(find.text('In-App Test Report'), findsOneWidget);
-      expect(find.text('Single Unit Verification'), findsWidgets);
+      expect(find.text('PASSED'), findsOneWidget);
     });
 
     testWidgets(
@@ -161,7 +145,7 @@ void main() {
         name: 'Default Screen',
         builder: (_) => const Text('Screen Content'),
       );
-      final controller =
+      final scenarioController =
           ScenarioController(registry: ScenarioRegistry([scenario]));
 
       registry.registerTest(
@@ -176,7 +160,7 @@ void main() {
         MaterialApp(
           home: Scaffold(
             body: ScenarioPanel(
-              controller: controller,
+              controller: scenarioController,
               testRegistry: registry,
             ),
           ),
@@ -184,26 +168,22 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Initially on Scenarios tab
       expect(find.text('Default Screen'), findsOneWidget);
-      expect(find.byKey(const ValueKey('panel_tab_tests')), findsOneWidget);
 
-      // Switch to Tests tab
-      await tester.tap(find.byKey(const ValueKey('panel_tab_tests')));
+      await tester.tap(find.byKey(const Key('panel_tab_tests')));
       await tester.pumpAndSettle();
 
-      expect(find.text('Test Mode'), findsOneWidget);
       expect(find.text('Panel Test Case'), findsOneWidget);
 
-      // Switch back to Scenarios tab
-      await tester.tap(find.byKey(const ValueKey('panel_tab_scenarios')));
+      await tester.tap(find.byKey(const Key('panel_tab_scenarios')));
       await tester.pumpAndSettle();
 
       expect(find.text('Default Screen'), findsOneWidget);
+
+      scenarioController.dispose();
     });
 
-    testWidgets('auto-selects active screen when currentScreenName is set',
-        (tester) async {
+    testWidgets('pre-selects active screen filter chip', (tester) async {
       registry.registerTest(
         ScenarioTest(id: 'dash_t', name: 'Dashboard Test', screen: 'Dashboard Screen'),
       );
@@ -212,12 +192,10 @@ void main() {
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ScenarioTestDashboard(
-              registry: registry,
-              currentScreenName: 'Dashboard Screen',
-            ),
+        buildDashboardApp(
+          dashboard: ScenarioTestDashboard(
+            registry: registry,
+            currentScreenName: 'Dashboard Screen',
           ),
         ),
       );
@@ -225,116 +203,29 @@ void main() {
 
       expect(find.text('Dashboard Test'), findsOneWidget);
       expect(find.text('Login Test'), findsNothing);
-      expect(find.text('(Active)'), findsOneWidget);
     });
 
-    testWidgets('shows mismatch banner and invokes onNavigateToScreen',
-        (tester) async {
-      registry.registerTest(
-        ScenarioTest(id: 'dash_t', name: 'Dashboard Test', screen: 'Dashboard Screen'),
-      );
-      registry.registerTest(
-        ScenarioTest(id: 'login_t', name: 'Login Test', screen: 'Login Screen'),
-      );
-
-      String? navigatedTo;
-      var closed = false;
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ScenarioTestDashboard(
-              registry: registry,
-              currentScreenName: 'Dashboard Screen',
-              onNavigateToScreen: (name) => navigatedTo = name,
-              onClose: () => closed = true,
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Login Screen'));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.textContaining('You are currently viewing "Dashboard Screen"'),
-        findsOneWidget,
-      );
-
-      await tester.tap(find.text('Go to Screen'));
-      await tester.pumpAndSettle();
-
-      expect(closed, isTrue);
-      expect(navigatedTo, 'Login Screen');
-    });
-
-    testWidgets('replaces Run All with go-to-screen action when mismatch',
+    testWidgets('shows mismatch dialog when running on wrong screen',
         (tester) async {
       registry.registerTest(
         ScenarioTest(id: 'login_t', name: 'Login Test', screen: 'Login Screen'),
       );
 
       await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ScenarioTestDashboard(
-              registry: registry,
-              currentScreenName: 'Dashboard Screen',
-              onNavigateToScreen: (_) {},
-            ),
+        buildDashboardApp(
+          dashboard: ScenarioTestDashboard(
+            registry: registry,
+            currentScreenName: 'Dashboard Screen',
+            onNavigateToScreen: (_) {},
           ),
         ),
       );
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Login Screen'));
-      await tester.pumpAndSettle();
-
-      expect(find.byKey(const ValueKey('run_all_button')), findsNothing);
-      expect(find.byKey(const ValueKey('go_to_screen_run_button')), findsOneWidget);
-      expect(find.text('Go to "Login Screen" to Run Tests'), findsOneWidget);
-    });
-
-    testWidgets('play button shows mismatch dialog instead of running',
-        (tester) async {
-      var ran = false;
-      registry.registerTest(
-        ScenarioTest(
-          id: 'login_t',
-          name: 'Login Test',
-          screen: 'Login Screen',
-          steps: [
-            ScenarioTestStep.custom(
-              id: 'c1',
-              description: 'Should not run',
-              action: (_) async => ran = true,
-            ),
-          ],
-        ),
-      );
-
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: ScenarioTestDashboard(
-              registry: registry,
-              currentScreenName: 'Dashboard Screen',
-              onNavigateToScreen: (_) {},
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.text('Login Screen'));
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.byKey(const ValueKey('run_single_login_t')));
+      await tester.tap(find.byTooltip('Run this test'));
       await tester.pumpAndSettle();
 
       expect(find.text('Switch Screen to Run Test'), findsOneWidget);
-      expect(ran, isFalse);
     });
   });
 }

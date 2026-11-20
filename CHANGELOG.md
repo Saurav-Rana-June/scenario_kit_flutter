@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.5] - 2026-11-20
+
+### Added
+- Redesigned developer UI (`scenario_kit_ui` library parts): responsive sheet shell, scenarios/tests/reports tabs, donut report summary, and export sheet chrome.
+- `scenario_kit_mappers.dart` bridging registry, runner, and report models into presentation view models.
+
+### Changed
+- `ScenarioPanel`, `ScenarioTestDashboard`, `ScenarioReportsTab`, and `ScenarioFloatingTrigger` wired to the new UI layer and `showScenarioKitSheet`.
+- Example app structure refresh (`app_shell`, catalog/profile screens).
+
+### Fixed
+- Floating trigger pill: reliable drag with screen bounds clamping and tap-to-open without `InkWell` gesture conflicts.
+
 ## [0.2.4] - 2026-11-19
 
 ### Fixed

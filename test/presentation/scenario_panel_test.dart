@@ -53,9 +53,9 @@ void main() {
       expect(find.text('Login Error'), findsOneWidget);
       expect(find.text('Empty Feed'), findsOneWidget);
 
-      expect(find.byKey(const ValueKey('filter_chip_All')), findsOneWidget);
-      expect(find.byKey(const ValueKey('filter_chip_Auth')), findsOneWidget);
-      expect(find.byKey(const ValueKey('filter_chip_Feed')), findsOneWidget);
+      expect(find.byKey(const Key('filter_chip_All')), findsOneWidget);
+      expect(find.byKey(const Key('filter_chip_Auth')), findsOneWidget);
+      expect(find.byKey(const Key('filter_chip_Feed')), findsOneWidget);
       expect(find.text('DEFAULT'), findsOneWidget);
     });
 
@@ -70,7 +70,6 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Enter search query
       await tester.enterText(find.byType(TextField), 'Feed');
       await tester.pumpAndSettle();
 
@@ -78,8 +77,7 @@ void main() {
       expect(find.text('Login Screen'), findsNothing);
       expect(find.text('Login Error'), findsNothing);
 
-      // Clear search
-      await tester.tap(find.byIcon(Icons.clear_rounded));
+      await tester.tap(find.byIcon(Icons.close_rounded));
       await tester.pumpAndSettle();
 
       expect(find.text('Login Screen'), findsOneWidget);
@@ -97,22 +95,20 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      // Tap 'Auth' group chip
-      await tester.tap(find.byKey(const ValueKey('filter_chip_Auth')));
+      await tester.tap(find.byKey(const Key('filter_chip_Auth')));
       await tester.pumpAndSettle();
 
       expect(find.text('Login Screen'), findsOneWidget);
       expect(find.text('Login Error'), findsOneWidget);
       expect(find.text('Empty Feed'), findsNothing);
 
-      // Tap 'All' group chip
-      await tester.tap(find.byKey(const ValueKey('filter_chip_All')));
+      await tester.tap(find.byKey(const Key('filter_chip_All')));
       await tester.pumpAndSettle();
 
       expect(find.text('Empty Feed'), findsOneWidget);
     });
 
-    testWidgets('selects scenario on tapping card', (tester) async {
+    testWidgets('selects scenario via Apply scenario button', (tester) async {
       await tester.pumpWidget(
         MaterialApp(
           home: Scaffold(
@@ -125,8 +121,7 @@ void main() {
 
       expect(controller.selectedId, 'auth_login');
 
-      // Tap Login Error card
-      await tester.tap(find.text('Login Error'));
+      await tester.tap(find.text('Apply scenario').first);
       await tester.pumpAndSettle();
 
       expect(controller.selectedId, 'auth_error');
@@ -165,7 +160,7 @@ void main() {
 
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('meta (1)'));
+      await tester.tap(find.text('meta 1'));
       await tester.pumpAndSettle();
 
       expect(find.text('Login Screen Metadata'), findsOneWidget);
@@ -200,29 +195,23 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Check all 3 tabs exist in header
-      expect(find.byKey(const ValueKey('panel_tab_scenarios')), findsOneWidget);
-      expect(find.byKey(const ValueKey('panel_tab_tests')), findsOneWidget);
-      expect(find.byKey(const ValueKey('panel_tab_reports')), findsOneWidget);
+      expect(find.byKey(const Key('panel_tab_scenarios')), findsOneWidget);
+      expect(find.byKey(const Key('panel_tab_tests')), findsOneWidget);
+      expect(find.byKey(const Key('panel_tab_reports')), findsOneWidget);
 
-      // Initially on Scenarios
       expect(find.text('Login Screen'), findsOneWidget);
 
-      // Switch to Reports tab
-      await tester.tap(find.byKey(const ValueKey('panel_tab_reports')));
+      await tester.tap(find.byKey(const Key('panel_tab_reports')));
       await tester.pumpAndSettle();
 
-      // Reports empty state is displayed
       expect(find.text('No test runs yet'), findsOneWidget);
 
-      // Switch to Tests tab
-      await tester.tap(find.byKey(const ValueKey('panel_tab_tests')));
+      await tester.tap(find.byKey(const Key('panel_tab_tests')));
       await tester.pumpAndSettle();
 
       expect(find.text('Panel Verification Test'), findsOneWidget);
 
-      // Switch back to Scenarios tab
-      await tester.tap(find.byKey(const ValueKey('panel_tab_scenarios')));
+      await tester.tap(find.byKey(const Key('panel_tab_scenarios')));
       await tester.pumpAndSettle();
 
       expect(find.text('Login Screen'), findsOneWidget);
